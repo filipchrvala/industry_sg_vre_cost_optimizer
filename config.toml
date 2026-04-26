@@ -1,0 +1,5 @@
+[repository]
+REGISTRY_NAME = "filipchrvala"
+REPOSITORY_NAME = "industry_sg_vre"
+REPOSITORY_LABEL = "Industry Smart grid virtual RE"
+VERSION = "0.1.52"
