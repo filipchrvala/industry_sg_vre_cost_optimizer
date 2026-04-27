@@ -3,7 +3,7 @@
   "description": "Generate battery SOC timeseries from load and PV profile",
   "dependencies_group": "0",
   "dependency": {
-    "requirements_file": "dependencies/requirements.txt"
+    "requirements_file": "requirements_0.txt"
   },
   "style": {
     "node_label": "Battery Simulation",

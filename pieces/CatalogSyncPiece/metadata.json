@@ -3,7 +3,7 @@
   "description": "Sync PV and inverter catalogs from online SAM sources",
   "dependencies_group": "0",
   "dependency": {
-    "requirements_file": "dependencies/requirements.txt"
+    "requirements_file": "requirements_0.txt"
   },
   "style": {
     "node_label": "Catalog Sync",

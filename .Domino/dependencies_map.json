@@ -2,7 +2,7 @@
   "group0": {
     "dependency": {
       "dockerfile": null,
-      "requirements_file": "dependencies/requirements.txt"
+      "requirements_file": "requirements_0.txt"
     },
     "pieces": [
       "UserInputPiece",

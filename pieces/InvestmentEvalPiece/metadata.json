@@ -3,7 +3,7 @@
   "description": "Compute investment evaluation from simulated KPIs",
   "dependencies_group": "0",
   "dependency": {
-    "requirements_file": "dependencies/requirements.txt"
+    "requirements_file": "requirements_0.txt"
   },
   "style": {
     "node_label": "Investment Evaluation",
