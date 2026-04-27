@@ -3,8 +3,4 @@ REGISTRY_NAME = "filipchrvala"
 REPOSITORY_NAME = "industry_sg_vre_cost_optimizer"
 REPOSITORY_LABEL = "Industry SG VRE Cost Optimizer"
 <<<<<<< HEAD
-VERSION = "0.1.0
-"
-=======
-VERSION = "0.1.2"
->>>>>>> ef16a3f (Normalize config.toml encoding and bump repository version)
+VERSION = "0.1.1"
