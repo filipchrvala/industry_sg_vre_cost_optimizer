@@ -2,4 +2,8 @@
 REGISTRY_NAME = "filipchrvala"
 REPOSITORY_NAME = "industry_sg_vre_cost_optimizer"
 REPOSITORY_LABEL = "Industry SG VRE Cost Optimizer"
+<<<<<<< HEAD
 VERSION = "0.1.0"
+=======
+VERSION = "0.1.3"
+>>>>>>> a2f2bf4 (Add fallback dependencies/requirements_0.txt and bump version)

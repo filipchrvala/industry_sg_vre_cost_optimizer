@@ -1,0 +1,8 @@
+# Domino / lokálny beh – MRK + FVE + batéria (historické dáta)
+pandas>=2.0
+numpy>=1.24
+pyyaml>=6.0
+pydantic>=2.0
+pytest>=7.0
+streamlit>=1.32
+openpyxl>=3.1
