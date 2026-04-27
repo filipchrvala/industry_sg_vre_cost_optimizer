@@ -1,9 +1,0 @@
-{
-  "max_kwp": 630.0,
-  "max_kwh": 625.0,
-  "annual_load_mwh_est": 1420.523,
-  "notes": [
-    "Limit plochy FVE aplikovaný.",
-    "Strop CAPEX zúžil horné limity kWp/kWh."
-  ]
-}

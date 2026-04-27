@@ -1,6 +1,0 @@
-scenario,label,energy_cost_eur,mrk_cost_period_eur,feed_in_revenue_eur,total_operating_eur,total_with_capex_eur
-baseline,baseline_no_storage,208088.53,24444.0,0.0,232532.53,232532.53
-pv_only,pv_only,151855.98,24444.0,8084.77,168215.21,233571.72
-battery_only,battery_only,207672.42,24444.0,0.0,232116.42,249712.4
-pv_and_battery,pv_and_battery,146483.47,24444.0,6397.61,164529.86,247482.35
-optimized,pv_and_battery,146483.47,24444.0,6397.61,164529.86,247482.35
