@@ -1,0 +1,828 @@
+{
+    "CatalogSyncPiece": {
+        "name": "CatalogSyncPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Catalog Sync",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:cloud-arrow-down",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Sync PV and inverter catalogs from online SAM sources",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "pv_catalog_json": {
+                    "title": "Pv Catalog Json",
+                    "type": "string"
+                },
+                "inverter_catalog_json": {
+                    "title": "Inverter Catalog Json",
+                    "type": "string"
+                },
+                "battery_catalog_json": {
+                    "title": "Battery Catalog Json",
+                    "type": "string"
+                },
+                "catalog_manifest_json": {
+                    "title": "Catalog Manifest Json",
+                    "type": "string"
+                },
+                "url_outage_detected": {
+                    "title": "Url Outage Detected",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "message",
+                "pv_catalog_json",
+                "inverter_catalog_json",
+                "battery_catalog_json",
+                "catalog_manifest_json",
+                "url_outage_detected"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogSyncPiece"
+    },
+    "SimulatePiece": {
+        "name": "SimulatePiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Simulate MRK Scenario",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:calculator",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Run MRK simulation baseline/PV/battery",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                },
+                "output_dir": {
+                    "default": "",
+                    "description": "Optional output dir when results_path is not set",
+                    "title": "Output Dir",
+                    "type": "string"
+                },
+                "ranked_catalog_json": {
+                    "default": "",
+                    "description": "Optional ranked catalog recommendation JSON",
+                    "title": "Ranked Catalog Json",
+                    "type": "string"
+                },
+                "inverter_catalog_json": {
+                    "default": "",
+                    "description": "Optional inverter catalog JSON",
+                    "title": "Inverter Catalog Json",
+                    "type": "string"
+                },
+                "battery_catalog_json": {
+                    "default": "",
+                    "description": "Optional battery catalog JSON",
+                    "title": "Battery Catalog Json",
+                    "type": "string"
+                },
+                "catalog_manifest_json": {
+                    "default": "",
+                    "description": "Optional catalog sync manifest JSON",
+                    "title": "Catalog Manifest Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "report_json": {
+                    "title": "Report Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "report_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulatePiece"
+    },
+    "SizingOptimizationPiece": {
+        "name": "SizingOptimizationPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Sizing Optimization",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:chart-line",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Auto/manual sizing for PV and battery",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                },
+                "technical_limits_json": {
+                    "description": "Path to technical limits json",
+                    "title": "Technical Limits Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml",
+                "technical_limits_json"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "sized_scenario_yaml": {
+                    "title": "Sized Scenario Yaml",
+                    "type": "string"
+                },
+                "sizing_optimization_json": {
+                    "title": "Sizing Optimization Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "sized_scenario_yaml",
+                "sizing_optimization_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SizingOptimizationPiece"
+    },
+    "CatalogRankerPiece": {
+        "name": "CatalogRankerPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Catalog Ranker",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:list-check",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Rank online hardware catalog for selected scenario sizing",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "scenario_yaml": {
+                    "description": "Path to sized scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                },
+                "pv_catalog_json": {
+                    "description": "Path to synced PV catalog JSON",
+                    "title": "Pv Catalog Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "scenario_yaml",
+                "pv_catalog_json"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "catalog_ranked_recommendation_json": {
+                    "title": "Catalog Ranked Recommendation Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "catalog_ranked_recommendation_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogRankerPiece"
+    },
+    "DashboardPiece": {
+        "name": "DashboardPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Dashboard Data",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:chart-line",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Aggregate MRK report and KPI CSV into dashboard JSON",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "report_json": {
+                    "description": "Path to mrk_savings_report.json",
+                    "title": "Report Json",
+                    "type": "string"
+                },
+                "kpi_results_csv": {
+                    "description": "Path to kpi_results.csv",
+                    "title": "Kpi Results Csv",
+                    "type": "string"
+                },
+                "investment_evaluation_csv": {
+                    "description": "Path to investment_evaluation.csv",
+                    "title": "Investment Evaluation Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "report_json",
+                "kpi_results_csv",
+                "investment_evaluation_csv"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "dashboard_data_json": {
+                    "title": "Dashboard Data Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "dashboard_data_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/DashboardPiece"
+    },
+    "KPIPiece": {
+        "name": "KPIPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Compute KPIs",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:chart-column",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Compute KPI summary from MRK report",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "report_json": {
+                    "description": "Path to mrk_savings_report.json",
+                    "title": "Report Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "report_json"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "kpi_results_csv": {
+                    "title": "Kpi Results Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "kpi_results_csv"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/KPIPiece"
+    },
+    "InvestmentEvalPiece": {
+        "name": "InvestmentEvalPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Investment Evaluation",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:coins",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Compute investment evaluation from simulated KPIs",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "report_json": {
+                    "description": "Path to mrk_savings_report.json",
+                    "title": "Report Json",
+                    "type": "string"
+                },
+                "kpi_results_csv": {
+                    "description": "Path to kpi_results.csv",
+                    "title": "Kpi Results Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "report_json",
+                "kpi_results_csv"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "investment_evaluation_csv": {
+                    "title": "Investment Evaluation Csv",
+                    "type": "string"
+                },
+                "investment_evaluation_json": {
+                    "title": "Investment Evaluation Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "investment_evaluation_csv",
+                "investment_evaluation_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvalPiece"
+    },
+    "BatterySimPiece": {
+        "name": "BatterySimPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Battery Simulation",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:battery-half",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Generate battery SOC timeseries from load and PV profile",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to sized scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                },
+                "virtual_solar_csv": {
+                    "description": "Path to virtual_solar.csv",
+                    "title": "Virtual Solar Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml",
+                "virtual_solar_csv"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "virtual_battery_soc_csv": {
+                    "title": "Virtual Battery Soc Csv",
+                    "type": "string"
+                },
+                "battery_summary_csv": {
+                    "title": "Battery Summary Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "virtual_battery_soc_csv",
+                "battery_summary_csv"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatterySimPiece"
+    },
+    "TechnicalLimitsPiece": {
+        "name": "TechnicalLimitsPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Technical Limits",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:ruler-combined",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Compute technical PV and battery bounds from constraints",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "technical_limits_json": {
+                    "title": "Technical Limits Json",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "technical_limits_json",
+                "scenario_yaml"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/TechnicalLimitsPiece"
+    },
+    "SolarSimPiece": {
+        "name": "SolarSimPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Solar Simulation",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:sun",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Generate synthetic PV profile for selected sizing",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to sized scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "virtual_solar_csv": {
+                    "title": "Virtual Solar Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "virtual_solar_csv"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimPiece"
+    },
+    "BatteryStrategyOptimizerPiece": {
+        "name": "BatteryStrategyOptimizerPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "Battery Strategy",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:sliders",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Create battery dispatch strategy recommendation",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to sized scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "battery_strategy_recommendation_json": {
+                    "title": "Battery Strategy Recommendation Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "battery_strategy_recommendation_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyOptimizerPiece"
+    },
+    "UserInputPiece": {
+        "name": "UserInputPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "User Input",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:file-lines",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Validate MRK workflow input files",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "prices_csv": {
+                    "default": "",
+                    "description": "Optional path to historical prices CSV",
+                    "title": "Prices Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "load_csv": {
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/UserInputPiece"
+    }
+}

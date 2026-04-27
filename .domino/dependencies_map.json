@@ -1,0 +1,24 @@
+{
+    "group0": {
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "pieces": [
+            "CatalogSyncPiece",
+            "SimulatePiece",
+            "SizingOptimizationPiece",
+            "CatalogRankerPiece",
+            "DashboardPiece",
+            "KPIPiece",
+            "InvestmentEvalPiece",
+            "BatterySimPiece",
+            "TechnicalLimitsPiece",
+            "SolarSimPiece",
+            "BatteryStrategyOptimizerPiece",
+            "UserInputPiece"
+        ],
+        "secrets": [],
+        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.1-group0"
+    }
+}
