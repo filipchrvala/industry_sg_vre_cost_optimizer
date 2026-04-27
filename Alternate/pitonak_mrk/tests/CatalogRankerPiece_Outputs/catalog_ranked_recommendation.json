@@ -1,0 +1,75 @@
+{
+  "installed_kwp_target": 600.0,
+  "top_recommendations": [
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE385MD-108BS",
+      "power_wp": 384.56,
+      "score": 2.1051,
+      "module_count_estimate": 1561
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE390MD-108BS",
+      "power_wp": 389.538,
+      "score": 2.1051,
+      "module_count_estimate": 1541
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE395MD-108BS",
+      "power_wp": 394.548,
+      "score": 2.1051,
+      "module_count_estimate": 1521
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE400MD-108BS",
+      "power_wp": 399.9,
+      "score": 2.1051,
+      "module_count_estimate": 1501
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE405MD-108BS",
+      "power_wp": 404.976,
+      "score": 2.1051,
+      "module_count_estimate": 1482
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE410MD-108BS",
+      "power_wp": 410.76,
+      "score": 2.1051,
+      "module_count_estimate": 1461
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE435MD-120BS",
+      "power_wp": 436.358,
+      "score": 2.1051,
+      "module_count_estimate": 1376
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE440MD-120BS",
+      "power_wp": 441.039,
+      "score": 2.1051,
+      "module_count_estimate": 1361
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE445MD-120BS",
+      "power_wp": 445.74,
+      "score": 2.1051,
+      "module_count_estimate": 1347
+    },
+    {
+      "manufacturer": "",
+      "model": "ALTERNATIVE ENERGY (AE) SOLAR CO. LTD. AE450MD-120BS",
+      "power_wp": 451.44,
+      "score": 2.1051,
+      "module_count_estimate": 1330
+    }
+  ]
+}

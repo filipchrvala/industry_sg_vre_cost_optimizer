@@ -1,0 +1,289 @@
+# Parametre analýzy úspor (batéria / FVE) na historických dátach spotreby.
+# Ceny energie sú POVINNÝ vstup v CSV (stĺpec price_eur_per_kwh), rovnako ako spotreba.
+
+timezone: Europe/Bratislava
+timestep_minutes: 15
+
+# Čo simulovať (true/false). Ak je vyplnené equipment.system_scope, prepíše tieto prepínače.
+use_pv: true
+use_battery: true
+
+# Návrh výkonu FVE / kapacity batérie (pitonak štýl)
+# selection_mode: manual = hodnoty z pv.* / battery.* nižšie
+#                 auto   = prehľad mriežky podľa priestoru / CAPEX / cieľa návratnosti
+equipment:
+  selection_mode: auto
+  system_scope: pv_and_battery
+  constraints:
+    max_roof_area_m2: 3500
+    max_battery_area_m2: 250
+    max_capex_eur: 800000
+    installation:
+      mount_type: roof
+      shading: low
+      priority: balanced
+      allow_bifacial: true
+  layout:
+    kwp_per_m2_roof: 0.18
+    kwh_per_m2_battery_area: 2.5
+  auto:
+    objective: max_npv
+    target_payback_years: 9
+    kwp_step: 50
+    kwh_step: 100
+    min_pv_kwp: 300
+    min_battery_kwh: 300
+    max_configurations: 200
+    require_pv: true
+    require_battery: true
+
+# Online katalogy (produkčný režim). Ak URL zlyhá, workflow používa lokálne fallback katalógy.
+catalog:
+  sync_enabled: true
+  sources:
+    pv_modules_url: "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Modules.csv"
+    inverters_url: "https://raw.githubusercontent.com/NREL/SAM/develop/deploy/libraries/CEC%20Inverters.csv"
+    battery_products_url: "https://solarequipment.energy.ca.gov/Home/DownloadtoExcel?filename=BatteryList"
+
+pv:
+  installed_kwp: 400
+  specific_capex_eur_per_kwp: 780
+  yield_kwh_per_kwp_year: 1020
+  tilt_deg: 15
+  azimuth_deg: 180
+  # priemer poklesu účinnosti za rok (pre odhad LCOE)
+  degradation_pct_per_year: 0.5
+  # voliteľné OPEX FVE €/kWp/rok
+  om_eur_per_kwp_year: 8
+
+battery:
+  energy_kwh: 600
+  max_c_rate: 0.5
+  charge_efficiency: 0.95
+  discharge_efficiency: 0.95
+  initial_soc_pct: 45
+  specific_capex_eur_per_kwh: 420
+  max_equivalent_full_cycles_per_year: 450
+  # kalendárna životnosť (pre konzervatívny odhad cyklov životnosti)
+  calendar_life_years: 15
+  # max. podiel kapacity, ktorý môže byť nabraný zo siete (arbitráž); zvyšok je „rezerva“ na FVE a špičku MRK
+  max_fraction_capacity_from_grid_charge: 0.72
+
+mrk:
+  # Zmluvný rezervovaný výkon (RV / „MRK“) – kW
+  contract_kw: 420
+  # Poplatok distribúcii za RV – orientačný rámc €/kW/mes (HV, SK trh; upravte podľa tarify)
+  fee_eur_per_kw_month: 4.85
+  # Penalizácia za kW mesačného maxima odberu nad RV (zjednodušený jednorazový doplatok za mesiac)
+  excess_peak_penalty_eur_per_kw: 32.0
+  # bezpečnostná rezerva pri návrhu nižšieho RV (% nad max. simulovanou špičkou)
+  rv_downsizing_safety_margin_pct: 8
+
+energy:
+  feed_in_surplus_eur_per_kwh: 0.052
+
+analysis:
+  amortization_years: 12
+  discount_rate: 0.09
+
+# Produkčný guardrail režim
+production:
+  strict_validation: false
+  min_sample_days: 7
+  max_missing_interval_share: 0.02
+
+# ============================================================================
+# LEGENDA K SCENARIO.YAML (riadok -> význam)
+# ============================================================================
+# timezone: Europe/Bratislava
+#   Časová zóna pre interpretáciu dátumov a časových radov.
+#
+# timestep_minutes: 15
+#   Očakávaný krok dát (15 minút = kvartálové dáta).
+#
+# use_pv: true
+#   Zapína/vypína simuláciu FVE vetvy.
+#
+# use_battery: true
+#   Zapína/vypína simuláciu batérie.
+#
+# equipment:
+#   Blok pre výber návrhu (manual/auto), limity a optimalizačné nastavenia.
+#
+# equipment.selection_mode: auto
+#   Režim návrhu technológie:
+#   - manual = použijú sa hodnoty pv.installed_kwp a battery.energy_kwh
+#   - auto   = systém hľadá najlepšiu kombináciu v mriežke kandidátov
+#
+# equipment.system_scope: pv_and_battery
+#   Scope riešenia:
+#   - pv_only
+#   - battery_only
+#   - pv_and_battery
+#
+# equipment.constraints.max_roof_area_m2: 3500
+#   Maximálna plocha pre FVE panely (m2).
+#
+# equipment.constraints.max_battery_area_m2: 250
+#   Maximálna plocha pre batériové kontajnery/racky (m2).
+#
+# equipment.constraints.max_capex_eur: 800000
+#   Horný limit CAPEX pre auto návrh (EUR).
+#
+# equipment.constraints.installation.mount_type: roof
+#   Typ montáže FVE (roof/ground) – ovplyvní limity výkonu.
+#
+# equipment.constraints.installation.shading: low
+#   Odhad tieňovania (none/low/medium/high) – vstup do ranking skóre panelov.
+#
+# equipment.constraints.installation.priority: balanced
+#   Priorita výberu panelov (napr. balanced / efficiency / cost, podľa logiky rankingu).
+#
+# equipment.constraints.installation.allow_bifacial: true
+#   Povoliť bifaciálne panely v kandidátoch.
+#
+# equipment.layout.kwp_per_m2_roof: 0.18
+#   Prevod plochy strechy na max. FVE výkon (kWp na m2).
+#
+# equipment.layout.kwh_per_m2_battery_area: 2.5
+#   Prevod plochy ESS na max. batériovú kapacitu (kWh na m2).
+#
+# equipment.auto.objective: max_npv
+#   Cieľ auto optimalizácie:
+#   - max_npv
+#   - shortest_payback
+#
+# equipment.auto.target_payback_years: 9
+#   Cieľová horná hranica jednoduchej návratnosti v rokoch (filter kandidátov).
+#
+# equipment.auto.kwp_step: 50
+#   Krok mriežky pre FVE výkon pri auto hľadaní (kWp).
+#
+# equipment.auto.kwh_step: 100
+#   Krok mriežky pre batériu pri auto hľadaní (kWh).
+#
+# equipment.auto.min_pv_kwp: 300
+#   Minimálny FVE výkon, ktorý auto návrh môže zvoliť.
+#
+# equipment.auto.min_battery_kwh: 300
+#   Minimálna batériová kapacita, ktorú auto návrh môže zvoliť.
+#
+# equipment.auto.max_configurations: 200
+#   Maximálny počet kombinácií, ktoré optimalizácia vyhodnotí.
+#
+# equipment.auto.require_pv: true
+#   Ak true, auto návrh musí obsahovať nenulovú FVE.
+#
+# equipment.auto.require_battery: true
+#   Ak true, auto návrh musí obsahovať nenulovú batériu.
+#
+# catalog:
+#   Konfigurácia zdrojov online katalógov hardvéru.
+#
+# catalog.sync_enabled: true
+#   Zapína synchronizáciu online katalógov (s fallbackom na lokálne súbory).
+#
+# catalog.sources.pv_modules_url: "..."
+#   URL na online katalóg FV modulov (CEC Modules CSV).
+#
+# catalog.sources.inverters_url: "..."
+#   URL na online katalóg meničov (CEC Inverters CSV).
+#
+# catalog.sources.battery_products_url: "..."
+#   URL na online katalóg batérií (JSON/CSV/XLSX; aktuálne CEC Battery export).
+#
+# pv:
+#   Parametre FVE technológie a ekonomiky.
+#
+# pv.installed_kwp: 400
+#   Manuálne zadaný FVE výkon (kWp); v auto režime sa prepíše optimalizovanou hodnotou.
+#
+# pv.specific_capex_eur_per_kwp: 780
+#   Jednotkový CAPEX FVE (EUR/kWp), používa sa vo výpočte CAPEX.
+#
+# pv.yield_kwh_per_kwp_year: 1020
+#   Ročný výťažok na 1 kWp (kWh/kWp/rok), vstup pre výrobný model.
+#
+# pv.tilt_deg: 15
+#   Sklon panelov (stupne).
+#
+# pv.azimuth_deg: 180
+#   Azimut panelov (180 = juh).
+#
+# pv.degradation_pct_per_year: 0.5
+#   Predpokladaná ročná degradácia výkonu FVE (%/rok).
+#
+# pv.om_eur_per_kwp_year: 8
+#   OPEX FVE (EUR/kWp/rok), vstup do ekonomiky.
+#
+# battery:
+#   Parametre batérie, dispatchu a ekonomiky.
+#
+# battery.energy_kwh: 600
+#   Manuálne zadaná kapacita batérie (kWh); v auto režime sa prepíše optimalizáciou.
+#
+# battery.max_c_rate: 0.5
+#   Maximálne C-rate batérie (ovplyvňuje max. charge/discharge výkon).
+#
+# battery.charge_efficiency: 0.95
+#   Účinnosť nabíjania.
+#
+# battery.discharge_efficiency: 0.95
+#   Účinnosť vybíjania.
+#
+# battery.initial_soc_pct: 45
+#   Počiatočný SOC batérie (%).
+#
+# battery.specific_capex_eur_per_kwh: 420
+#   Jednotkový CAPEX batérie (EUR/kWh), používa sa vo výpočte CAPEX.
+#
+# battery.max_equivalent_full_cycles_per_year: 450
+#   Limit ekvivalentných plných cyklov ročne (vstup do ekonomiky opotrebenia).
+#
+# battery.calendar_life_years: 15
+#   Kalendárna životnosť batérie (roky).
+#
+# battery.max_fraction_capacity_from_grid_charge: 0.72
+#   Max. podiel kapacity nabíjanej zo siete (zvyšok je rezerva na PV/peak-shaving).
+#
+# mrk:
+#   Parametre rezervovaného výkonu (MRK/RV) a penalizácií.
+#
+# mrk.contract_kw: 420
+#   Zmluvný rezervovaný výkon (kW).
+#
+# mrk.fee_eur_per_kw_month: 4.85
+#   Mesačný fixný poplatok za 1 kW rezervovaného výkonu.
+#
+# mrk.excess_peak_penalty_eur_per_kw: 32.0
+#   Penalizácia za prekročenie MRK (EUR/kW) v mesiaci.
+#
+# mrk.rv_downsizing_safety_margin_pct: 8
+#   Bezpečnostná rezerva pri návrhu nižšieho RV (% nad simulované maximum).
+#
+# energy:
+#   Energetické obchodné predpoklady.
+#
+# energy.feed_in_surplus_eur_per_kwh: 0.052
+#   Výkupná cena prebytkov do siete (EUR/kWh).
+#
+# analysis:
+#   Finančné parametre investičného hodnotenia.
+#
+# analysis.amortization_years: 12
+#   Horizont amortizácie / hodnotenia investície (roky).
+#
+# analysis.discount_rate: 0.09
+#   Diskontná miera pre NPV / discounted payback.
+#
+# production:
+#   Guardrails kvality vstupných dát pre produkčný režim.
+#
+# production.strict_validation: false
+#   Ak true, nevyhovujúce vstupy môžu workflow zastaviť chybou.
+#
+# production.min_sample_days: 7
+#   Minimálny počet dní vzorky pre dôveryhodnú analýzu.
+#
+# production.max_missing_interval_share: 0.02
+#   Maximálny podiel chýbajúcich intervalov vo vstupných dátach.

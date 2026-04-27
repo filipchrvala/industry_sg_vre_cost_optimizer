@@ -1,0 +1,67 @@
+timezone: Europe/Bratislava
+timestep_minutes: 15
+use_pv: true
+use_battery: true
+equipment:
+  selection_mode: auto
+  system_scope: pv_and_battery
+  constraints:
+    max_roof_area_m2: 3500
+    max_battery_area_m2: 250
+    max_capex_eur: 800000
+    installation:
+      mount_type: roof
+      shading: low
+      priority: balanced
+      allow_bifacial: true
+  layout:
+    kwp_per_m2_roof: 0.18
+    kwh_per_m2_battery_area: 2.5
+  auto:
+    objective: max_npv
+    target_payback_years: 9
+    kwp_step: 50
+    kwh_step: 100
+    min_pv_kwp: 300
+    min_battery_kwh: 300
+    max_configurations: 200
+    require_pv: true
+    require_battery: true
+catalog:
+  sync_enabled: true
+  sources:
+    pv_modules_url: https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Modules.csv
+    inverters_url: https://raw.githubusercontent.com/NREL/SAM/develop/deploy/libraries/CEC%20Inverters.csv
+    battery_products_url: https://solarequipment.energy.ca.gov/Home/DownloadtoExcel?filename=BatteryList
+pv:
+  installed_kwp: 600.0
+  specific_capex_eur_per_kwp: 780
+  yield_kwh_per_kwp_year: 1020
+  tilt_deg: 15
+  azimuth_deg: 180
+  degradation_pct_per_year: 0.5
+  om_eur_per_kwp_year: 8
+battery:
+  energy_kwh: 300.0
+  max_c_rate: 0.5
+  charge_efficiency: 0.95
+  discharge_efficiency: 0.95
+  initial_soc_pct: 45
+  specific_capex_eur_per_kwh: 420
+  max_equivalent_full_cycles_per_year: 450
+  calendar_life_years: 15
+  max_fraction_capacity_from_grid_charge: 0.72
+mrk:
+  contract_kw: 420
+  fee_eur_per_kw_month: 4.85
+  excess_peak_penalty_eur_per_kw: 32.0
+  rv_downsizing_safety_margin_pct: 8
+energy:
+  feed_in_surplus_eur_per_kwh: 0.052
+analysis:
+  amortization_years: 12
+  discount_rate: 0.09
+production:
+  strict_validation: false
+  min_sample_days: 7
+  max_missing_interval_share: 0.02

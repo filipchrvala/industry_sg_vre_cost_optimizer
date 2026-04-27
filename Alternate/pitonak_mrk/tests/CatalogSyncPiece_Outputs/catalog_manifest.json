@@ -1,0 +1,20 @@
+{
+  "fetched_at_utc": "2026-04-26T21:02:14.478742+00:00",
+  "sources": {
+    "pv_modules_url": "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Modules.csv",
+    "inverters_url": "https://raw.githubusercontent.com/NREL/SAM/develop/deploy/libraries/CEC%20Inverters.csv",
+    "battery_products_url": "https://solarequipment.energy.ca.gov/Home/DownloadtoExcel?filename=BatteryList"
+  },
+  "counts": {
+    "pv_modules": 20745,
+    "inverters": 2086,
+    "battery_products": 909
+  },
+  "source_mode": {
+    "pv_modules": "online",
+    "inverters": "online",
+    "battery_products": "online"
+  },
+  "url_outage_detected": false,
+  "warnings": []
+}

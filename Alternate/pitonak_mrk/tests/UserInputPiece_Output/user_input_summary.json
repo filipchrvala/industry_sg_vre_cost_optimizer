@@ -1,0 +1,23 @@
+{
+  "message": "User input validated",
+  "merge_mode": "two_csv_merged",
+  "input_paths": {
+    "load_csv": "C:\\Users\\NTB\\Domino\\industry_sg_vre_workflow\\pitonak_mrk\\user_input\\load_csv.csv",
+    "prices_csv": "C:\\Users\\NTB\\Domino\\industry_sg_vre_workflow\\pitonak_mrk\\user_input\\prices.csv",
+    "scenario_yaml": "C:\\Users\\NTB\\Domino\\industry_sg_vre_workflow\\pitonak_mrk\\user_input\\scenario.yaml"
+  },
+  "resolved_paths": {
+    "load_csv": "C:\\Users\\NTB\\Domino\\industry_sg_vre_workflow\\pitonak_mrk\\tests\\UserInputPiece_Output\\load_and_prices_merged.csv",
+    "scenario_yaml": "C:\\Users\\NTB\\Domino\\industry_sg_vre_workflow\\pitonak_mrk\\user_input\\scenario.yaml"
+  },
+  "rows_merged": 35040,
+  "rows_overlap_when_two_csv": 35036,
+  "datetime_min": "2025-01-01 00:00:00",
+  "datetime_max": "2025-12-31 23:45:00",
+  "inferred_step_hours": 0.25,
+  "repair_step_hours": 0.25,
+  "expected_intervals_in_range": 35040,
+  "missing_intervals_estimate": 0,
+  "gap_repair_enabled": true,
+  "repaired_intervals_count": 4
+}
