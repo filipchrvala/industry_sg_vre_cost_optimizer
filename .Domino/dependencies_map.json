@@ -1,0 +1,17 @@
+﻿{
+  "group0": {
+    "dependency": {
+      "dockerfile": null,
+      "requirements_file": "dependencies/requirements.txt"
+    },
+    "pieces": [
+      "UserInputPiece",
+      "SimulatePiece",
+      "KPIPiece",
+      "InvestmentEvalPiece",
+      "DashboardPiece"
+    ],
+    "secrets": [],
+    "source_image": null
+  }
+}
