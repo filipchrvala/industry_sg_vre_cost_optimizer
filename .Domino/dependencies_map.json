@@ -1,4 +1,4 @@
-﻿{
+{
   "group0": {
     "dependency": {
       "dockerfile": null,
@@ -6,6 +6,13 @@
     },
     "pieces": [
       "UserInputPiece",
+      "CatalogSyncPiece",
+      "TechnicalLimitsPiece",
+      "SizingOptimizationPiece",
+      "CatalogRankerPiece",
+      "SolarSimPiece",
+      "BatteryStrategyOptimizerPiece",
+      "BatterySimPiece",
       "SimulatePiece",
       "KPIPiece",
       "InvestmentEvalPiece",

@@ -1,43 +1,68 @@
-# Industry Smart Grid Virtual RE Pilot Project – Domino Pieces Repository
+# MRK / PV / bateria - naming aligned with original workflow
 
-**Owner:** scditech (SCDI)  
-**Project:** Industry Smart Grid Virtual RE  
+Projekt je premenovany na naming styl povodneho `pitonak` workflow.
 
-**Domino / vývoj:** kompletný samostatný projekt je v **[`Alternate/`](Alternate/README.md)** (všetky piece, testy, `run_workflow.py`, investičný návrh). Koreňový priečinok môže zostať ako zrkadlo alebo história.
+## Pieces
 
-## Structure
+- `UserInputPiece`
+- `CatalogSyncPiece`
+- `TechnicalLimitsPiece`
+- `SizingOptimizationPiece`
+- `CatalogRankerPiece`
+- `SolarSimPiece`
+- `BatteryStrategyOptimizerPiece`
+- `BatterySimPiece`
+- `SimulatePiece`
+- `KPIPiece`
+- `InvestmentEvalPiece`
+- `DashboardPiece`
 
-- `pieces/`: Domino Pieces
-- `dependencies/`: Docker and requirements files
-- `config.toml`: Repository configuration
-- `.github/workflows/`: CI/CD for building Pieces
+Vsetky su pod `pieces/<Name>/` a kazdy ma **iba** `models.py`, `piece.py`, `metadata.json`.
 
-## Lokálny pipeline (bez `workflow_new`)
+Cela MRK / PV / batéria simulácia je v **`pieces/SimulatePiece/piece.py`** (ziadny `CommonPiece` ani extra moduly mimo pieces).
 
-Z koreňa tohto repa:
+## Workflow
 
-```bash
+Pipeline je:
+
+`UserInputPiece -> CatalogSyncPiece -> TechnicalLimitsPiece -> SizingOptimizationPiece -> CatalogRankerPiece -> SolarSimPiece -> BatteryStrategyOptimizerPiece -> BatterySimPiece -> SimulatePiece -> KPIPiece -> InvestmentEvalPiece -> DashboardPiece`
+
+Spustenie:
+
+```text
 python run_workflow.py
 ```
 
-Preprocess ukladá len `train_dataset.parquet`; predikcia ide zo samostatného CSV (`scripts/generate_predict_planned_csv.py` ak treba). Žiadny extra priečinok `workflow_new` — všetko je v `pieces/`, `tests/`, `scripts/`.
+Vystupy:
 
-## Usage (Domino publish)
+- `tests/SimulatePiece_Outputs/mrk_savings_report.json`
+- `tests/KPIPiece_Outputs/kpi_results.csv`
+- `tests/InvestmentEvalPiece_Outputs/investment_evaluation.csv`
+- `tests/DashboardPiece_Outputs/dashboard_data.json`
 
-1. Install Domino CLI
-2. Run: `domino-pieces publish`
+## Streamlit dashboard
 
-## Pieces Overview
+Po `python run_workflow.py` môžeš otvoriť vizuálny prehľad (KPI, technológia, graf).
 
-| Piece | Purpose |
-|-------|---------|
-| FetchEnergyDataPiece | Merge load, production, and price CSVs into one Parquet dataset. |
-| PreprocessEnergyDataPiece | Iba `train_dataset.parquet` (15 min); predikčný vstup je samostatný CSV. |
-| TrainModelPiece | Tréning XGBoost; v logu MAE/RMSE v kW a % priemeru testu, MAPE. |
-| PredictPiece | Predpoveď `predictions_15min.csv`; voliteľne rolling na plánovanom CSV. |
-| SolarSimPiece | Simulate PV output (virtual_solar.csv) from weather and solar_config.yml. |
-| BatterySimPiece | Simulate battery charge/discharge and grid import (virtual_battery_soc.csv, battery_summary.csv). |
-| SimulatePiece | Compute baseline vs. scenario costs (simulated_results.csv, summary.csv). |
-| KPIPiece | Compute KPIs: kWh/ton, peak reduction, savings, CO₂ (kpi_results.csv). |
-| InvestmentEvalPiece | Investment evaluation: CAPEX, payback, NPV, LCOE (investment_evaluation.csv). |
-| DashboardPiece | Aggregate piece outputs into dashboard_data.json for the Streamlit dashboard. |
+**Dôležité:** príkazy musíš spúšťať z priečinka `pitonak_mrk` (nie z `C:\Windows\System32`).
+
+```text
+cd <tvoj-klon>\industry_sg_vre_workflow\pitonak_mrk
+pip install -r dependencies/requirements.txt
+streamlit run streamlit_app.py
+```
+
+Alebo z ľubovoľného adresára (PowerShell) – skript sám nastaví správny priečinok:
+
+```text
+& "<plna-cesta-k-klonu>\pitonak_mrk\run_streamlit.ps1"
+```
+
+Predvolená cesta k JSON je `tests/DashboardPiece_Outputs/dashboard_data.json`; inú cestu zadáš v bočnom paneli alebo cez premennú `STREAMLIT_DASHBOARD_JSON`.
+
+## Domino metadata
+
+- `.domino/dependencies_map.json`
+- `.domino/compiled_metadata.json`
+
+uz pouzivaju iba vyssie uvedene piece nazvy.

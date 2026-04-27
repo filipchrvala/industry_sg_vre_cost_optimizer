@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "InvestmentEvalPiece",
   "description": "Compute investment evaluation from simulated KPIs",
   "dependencies_group": "0",

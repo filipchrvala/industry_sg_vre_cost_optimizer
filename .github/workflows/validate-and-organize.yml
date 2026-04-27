@@ -5,7 +5,9 @@ on:
     branches:
       - main
     paths:
-      - 'config.toml'
+      - "config.toml"
+      - "pieces/**"
+      - "dependencies/**"
 
 jobs:
   validate-and-organize:
@@ -14,8 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal access token.
-          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
+          persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v3
@@ -34,25 +36,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: pip list
-        run: pip list | grep domino
-
       - name: Run organize and build images
         run: |
-          domino piece organize --build-images --source-url=https://github.com/${{github.repository}}
+          domino piece organize --build-images --source-url=https://github.com/${{ github.repository }}
 
-#      - name: Install Tests Dependencies
-#        run: pip install -r requirements-tests.txt
-
-#      - name: Run tests over built images
-#        run: |
-#          pytest --cov=pieces --cov-report=xml --cov-report=term-missing
-      
-#      - name: Upload coverage reports to Codecov
-#        uses: codecov/codecov-action@v3
-#        env:
-#          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
       - name: Publish images
         env:
           GHCR_USERNAME: ${{ github.actor }}
