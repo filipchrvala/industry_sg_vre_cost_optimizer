@@ -19,6 +19,6 @@
             "UserInputPiece"
         ],
         "secrets": [],
-        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.6-group0"
+        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.7-group0"
     }
 }
