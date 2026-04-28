@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 from typing import Any
 import uuid
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -1450,21 +1451,36 @@ class SimulatePiece(BasePiece):
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
+        out_dir = Path(self.results_path) if self.results_path else Path(input_data.output_dir or ".")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        log_path = out_dir / "simulate.log"
+
+        def _log(msg: str) -> None:
+            text = f"[SimulatePiece] {msg}"
+            print(text, flush=True)
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(text + "\n")
+
+        _log(f"Input load_csv={csv_path}")
+        _log(f"Input scenario_yaml={scenario_path}")
+        _log(f"Input output_dir={input_data.output_dir}")
         if not csv_path.is_file():
             raise FileNotFoundError(f"Load CSV not found: {csv_path}")
         if not scenario_path.is_file():
             raise FileNotFoundError(f"Scenario YAML not found: {scenario_path}")
 
-        out_dir = Path(self.results_path) if self.results_path else Path(input_data.output_dir or ".")
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        run_analysis(
-            csv_path,
-            scenario_path,
-            output_dir=out_dir,
-            battery_catalog_json=input_data.battery_catalog_json,
-            inverter_catalog_json=input_data.inverter_catalog_json,
-        )
+        try:
+            run_analysis(
+                csv_path,
+                scenario_path,
+                output_dir=out_dir,
+                battery_catalog_json=input_data.battery_catalog_json,
+                inverter_catalog_json=input_data.inverter_catalog_json,
+            )
+        except Exception as exc:
+            (out_dir / "simulate_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            _log(f"ERROR during run_analysis: {exc}")
+            raise
         report_path = out_dir / "mrk_savings_report.json"
         if not report_path.is_file():
             raise RuntimeError(f"Report was not written: {report_path}")
@@ -1539,4 +1555,5 @@ class SimulatePiece(BasePiece):
         simulated = pd.DataFrame(sim_rows)
         summary.to_csv(out_dir / "summary.csv", index=False)
         simulated.to_csv(out_dir / "simulated_results.csv", index=False)
+        _log(f"Wrote outputs: {report_path}, {out_dir / 'summary.csv'}, {out_dir / 'simulated_results.csv'}")
         return OutputModel(message="Simulation finished", report_json=str(report_path))
