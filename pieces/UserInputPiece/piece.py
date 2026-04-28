@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -95,17 +96,30 @@ class UserInputPiece(BasePiece):
         load_csv = Path(input_data.load_csv)
         prices_csv = Path(input_data.prices_csv) if input_data.prices_csv else None
         scenario_yaml = Path(input_data.scenario_yaml)
+        out_dir = Path(self.results_path or load_csv.parent)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        log_path = out_dir / "user_input.log"
+
+        def _log(msg: str) -> None:
+            text = f"[UserInputPiece] {msg}"
+            print(text, flush=True)
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(text + "\n")
+
+        _log(f"Input load_csv={load_csv}")
+        _log(f"Input prices_csv={prices_csv}")
+        _log(f"Input scenario_yaml={scenario_yaml}")
         if not load_csv.is_file():
             raise FileNotFoundError(f"Load CSV not found: {load_csv}")
         if not scenario_yaml.is_file():
             raise FileNotFoundError(f"Scenario YAML not found: {scenario_yaml}")
-        scenario = yaml.safe_load(scenario_yaml.read_text(encoding="utf-8")) or {}
+        scenario_copy = out_dir / "scenario_resolved.yaml"
+        shutil.copy2(scenario_yaml, scenario_copy)
+        _log(f"Copied scenario to shared output path: {scenario_copy}")
+        scenario = yaml.safe_load(scenario_copy.read_text(encoding="utf-8")) or {}
         timestep_minutes = float(scenario.get("timestep_minutes", 15))
         prod_cfg = scenario.get("production") or {}
         gap_repair_enabled = bool(prod_cfg.get("gap_repair_enabled", True))
-
-        out_dir = Path(self.results_path or load_csv.parent)
-        out_dir.mkdir(parents=True, exist_ok=True)
 
         # Case A: load_csv already contains both load_kw and price_eur_per_kwh.
         df = self._normalize_datetime_column(self._read_csv_auto(load_csv))
@@ -186,7 +200,7 @@ class UserInputPiece(BasePiece):
             },
             "resolved_paths": {
                 "load_csv": str(merged_path),
-                "scenario_yaml": str(scenario_yaml),
+                "scenario_yaml": str(scenario_copy),
             },
             "rows_merged": int(len(merged_df)),
             "rows_overlap_when_two_csv": overlap_rows,
@@ -209,5 +223,5 @@ class UserInputPiece(BasePiece):
         return OutputModel(
             message="User input validated",
             load_csv=str(merged_path),
-            scenario_yaml=str(scenario_yaml),
+            scenario_yaml=str(scenario_copy),
         )
