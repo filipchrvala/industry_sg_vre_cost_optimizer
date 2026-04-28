@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import copy
-import importlib.util
+import importlib
 import json
 from pathlib import Path
+import sys
 import traceback
 
 import yaml
@@ -13,13 +14,10 @@ from .models import InputModel, OutputModel
 
 
 def _load_simulate_module():
-    sim_path = Path(__file__).resolve().parents[1] / "SimulatePiece" / "piece.py"
-    spec = importlib.util.spec_from_file_location("simulate_piece_module", sim_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load SimulatePiece module from {sim_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    return importlib.import_module("pieces.SimulatePiece.piece")
 
 
 class SizingOptimizationPiece(BasePiece):
