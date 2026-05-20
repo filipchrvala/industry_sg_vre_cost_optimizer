@@ -378,6 +378,146 @@ def equivalent_full_cycles(soc_pct_series: pd.Series) -> float:
     return float(ch / 200.0)
 
 
+def _annual_cycles_from_period(cycles_period: float, days_in_sample: float) -> float:
+    if days_in_sample <= 1e-9:
+        return 0.0
+    return float(cycles_period) * (365.0 / float(days_in_sample))
+
+
+def build_battery_soh_assessment(
+    *,
+    equivalent_cycles_period: float,
+    days_in_sample: float,
+    battery_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    annual_cycles = _annual_cycles_from_period(equivalent_cycles_period, days_in_sample)
+    cal_life_years = float(battery_cfg.get("calendar_life_years", 10))
+    cycle_life_at_eol = float(battery_cfg.get("cycle_life_at_eol", 8000))
+    eol_capacity_pct = float(battery_cfg.get("eol_capacity_pct", 80.0))
+    life_by_cycles = cycle_life_at_eol / max(annual_cycles, 1e-9) if annual_cycles > 1e-9 else float("inf")
+    expected_life_years = min(cal_life_years, life_by_cycles)
+    cap_fade_per_year_cal = (100.0 - eol_capacity_pct) / max(cal_life_years, 1e-9)
+    cap_fade_per_cycle = (100.0 - eol_capacity_pct) / max(cycle_life_at_eol, 1e-9)
+    cap_fade_per_year_cycles = annual_cycles * cap_fade_per_cycle
+    cap_fade_per_year_total = cap_fade_per_year_cal + cap_fade_per_year_cycles
+    return {
+        "equivalent_cycles_period": round(float(equivalent_cycles_period), 3),
+        "annual_equivalent_cycles_est": round(float(annual_cycles), 2),
+        "calendar_life_years": round(cal_life_years, 2),
+        "cycle_life_at_eol": round(cycle_life_at_eol, 1),
+        "end_of_life_capacity_pct": round(eol_capacity_pct, 2),
+        "estimated_life_years_by_cycles": round(float(life_by_cycles), 2) if math.isfinite(life_by_cycles) else None,
+        "estimated_life_years_effective": round(float(expected_life_years), 2) if math.isfinite(expected_life_years) else None,
+        "estimated_capacity_fade_pct_per_year": round(float(cap_fade_per_year_total), 3),
+    }
+
+
+def apply_finance_layer(
+    *,
+    annual_operating_savings_eur: float,
+    total_capex_eur: float,
+    analysis_years: int,
+    discount_rate: float,
+    finance_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    om_abs = float(finance_cfg.get("o_and_m_eur_per_year", 0.0))
+    om_pct = float(finance_cfg.get("o_and_m_pct_of_capex", 0.0))
+    ancillary = float(finance_cfg.get("ancillary_revenue_eur_per_year", 0.0))
+    debt_ratio = float(finance_cfg.get("debt_ratio_of_capex", 0.0))
+    debt_rate = float(finance_cfg.get("debt_interest_rate", 0.0))
+    debt_years = int(finance_cfg.get("debt_years", max(1, analysis_years)))
+    tax_rate = float(finance_cfg.get("tax_rate_pct", 0.0)) / 100.0
+
+    annual_om = om_abs + (om_pct / 100.0) * total_capex_eur
+    debt_principal = max(0.0, min(1.0, debt_ratio)) * total_capex_eur
+    debt_annual_payment = annual_capex_charge_eur(debt_principal, 0.0, debt_years, debt_rate)
+    pre_tax = annual_operating_savings_eur + ancillary - annual_om - debt_annual_payment
+    tax = max(0.0, pre_tax) * max(0.0, tax_rate)
+    annual_after_tax = pre_tax - tax
+    npv_after_tax = -total_capex_eur + _npv_annuity(annual_after_tax, analysis_years, discount_rate)
+    payback_after_tax = (total_capex_eur / annual_after_tax) if annual_after_tax > 1e-9 else None
+
+    return {
+        "annual_operating_savings_eur_before_finance": round(float(annual_operating_savings_eur), 2),
+        "annual_o_and_m_eur": round(float(annual_om), 2),
+        "annual_ancillary_revenue_eur": round(float(ancillary), 2),
+        "annual_debt_service_eur": round(float(debt_annual_payment), 2),
+        "annual_tax_eur": round(float(tax), 2),
+        "annual_net_cashflow_after_finance_eur": round(float(annual_after_tax), 2),
+        "simple_payback_after_finance_years": round(float(payback_after_tax), 3) if payback_after_tax else None,
+        "npv_after_finance_eur": round(float(npv_after_tax), 2),
+    }
+
+
+def dispatch_trading_only(
+    price: np.ndarray,
+    dt_h: float,
+    *,
+    energy_kwh: float,
+    max_c_rate: float,
+    eta_c: float,
+    eta_d: float,
+    initial_soc_pct: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    n = len(price)
+    if energy_kwh <= 1e-9 or n == 0:
+        return np.zeros(n), np.zeros(n)
+    pmax = max(0.0, max_c_rate * energy_kwh)
+    p = np.asarray(price, dtype=float)
+    p_low = float(np.quantile(p, 0.30))
+    p_high = float(np.quantile(p, 0.75))
+    soc = float(np.clip(initial_soc_pct, 0.0, 100.0)) / 100.0 * energy_kwh
+    imp_kw = np.zeros(n)
+    exp_kw = np.zeros(n)
+    for t in range(n):
+        pr = float(p[t])
+        if pr <= p_low:
+            room = max(0.0, energy_kwh - soc)
+            ch_kw = min(pmax, room / max(dt_h * eta_c, 1e-9))
+            if ch_kw > 1e-12:
+                imp_kw[t] = ch_kw
+                soc += ch_kw * dt_h * eta_c
+        elif pr >= p_high:
+            avail_kw = min(pmax, soc * eta_d / max(dt_h, 1e-9))
+            if avail_kw > 1e-12:
+                exp_kw[t] = avail_kw
+                soc -= avail_kw * dt_h / max(eta_d, 1e-9)
+        soc = float(np.clip(soc, 0.0, energy_kwh))
+    return imp_kw, exp_kw
+
+
+def run_c_rate_sweep(cfg: dict[str, Any], df: pd.DataFrame, c_rates: list[float]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for cr in c_rates:
+        trial = copy.deepcopy(cfg)
+        trial.setdefault("battery", {})["max_c_rate"] = float(cr)
+        bundle = _sim_bundle(trial, df)
+        optimized = primary_optimized_scenario(bundle)
+        if optimized is None:
+            continue
+        annual_factor = 365.0 / max(bundle["days_in_sample"], 1e-9)
+        annual_savings = (
+            float(bundle["baseline"]["total_operating_eur"]) - float(optimized["total_operating_eur"])
+        ) * annual_factor
+        cycles_period = float(optimized.get("equivalent_full_cycles", 0.0))
+        soh = build_battery_soh_assessment(
+            equivalent_cycles_period=cycles_period,
+            days_in_sample=float(bundle["days_in_sample"]),
+            battery_cfg=trial.get("battery") or {},
+        )
+        rows.append(
+            {
+                "c_rate": float(cr),
+                "annual_operating_savings_eur": round(float(annual_savings), 2),
+                "equivalent_cycles_period": round(cycles_period, 3),
+                "annual_equivalent_cycles_est": soh["annual_equivalent_cycles_est"],
+                "estimated_life_years_effective": soh["estimated_life_years_effective"],
+                "optimized_total_operating_eur_period": round(float(optimized["total_operating_eur"]), 2),
+            }
+        )
+    return rows
+
+
 def analyze_price_input_quality(
     df: pd.DataFrame,
     price: pd.Series,
@@ -1009,7 +1149,7 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
 
     profiles_kw: dict[str, np.ndarray] = {}
 
-    def scenario_case(name: str, pv_on: bool, bat_on: bool) -> dict[str, Any]:
+    def scenario_case(name: str, pv_on: bool, bat_on: bool, *, trading_only: bool = False) -> dict[str, Any]:
         ann_capex = annual_capex_charge_eur(
             pv_capex if pv_on and use_pv else 0.0,
             bat_capex if bat_on and use_bat else 0.0,
@@ -1027,7 +1167,19 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
         surplus = np.maximum(-net, 0.0)
         export_kw = surplus.copy()
 
-        if bat_on and e_kwh > 1e-6:
+        if trading_only and bat_on and e_kwh > 1e-6:
+            grid, export_kw = dispatch_trading_only(
+                price.values.astype(float),
+                dt_h,
+                energy_kwh=e_kwh,
+                max_c_rate=c_rate,
+                eta_c=eta_c,
+                eta_d=eta_d,
+                initial_soc_pct=soc0,
+            )
+            soc = np.full(n, np.nan)
+            cycles = float(np.sum((np.clip(grid, 0.0, None) * dt_h * eta_c) / max(e_kwh, 1e-9)))
+        elif bat_on and e_kwh > 1e-6:
             g, soc, _p_b, export_kw = dispatch_battery(
                 net.astype(float),
                 price.values.astype(float),
@@ -1054,13 +1206,16 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
 
         e_cost = energy_cost_eur(pd.Series(grid), price, dt_h)
         rev = feed_in_revenue_eur(pd.Series(export_kw), feed_in, dt_h) if pv_on else 0.0
-        mrk_cost, mrk_detail = mrk_component_monthly(
-            pd.Series(grid),
-            ts,
-            contract_kw=mrk_kw,
-            fee_eur_per_kw_month=fee_m,
-            excess_penalty_eur_per_kw=pen,
-        )
+        if trading_only:
+            mrk_cost, mrk_detail = 0.0, {}
+        else:
+            mrk_cost, mrk_detail = mrk_component_monthly(
+                pd.Series(grid),
+                ts,
+                contract_kw=mrk_kw,
+                fee_eur_per_kw_month=fee_m,
+                excess_penalty_eur_per_kw=pen,
+            )
         total_op = e_cost + mrk_cost - rev
 
         profiles_kw[name] = np.asarray(grid, dtype=float).copy()
@@ -1080,6 +1235,8 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
     pv_only = scenario_case("pv_only", True, False) if use_pv else None
     bat_only = scenario_case("battery_only", False, True) if use_bat else None
     both = scenario_case("pv_and_battery", True, True) if (use_pv and use_bat) else None
+    enable_trading = bool((an_cfg.get("enable_trading_only_scenario", True)))
+    trading_only = scenario_case("battery_trading_only", False, True, trading_only=True) if (use_bat and enable_trading) else None
     days_in_sample = float(n) * dt_h / 24.0
 
     return {
@@ -1087,6 +1244,7 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
         "pv_only": pv_only,
         "battery_only": bat_only,
         "pv_and_battery": both,
+        "battery_trading_only": trading_only,
         "econ_global": econ_global,
         "pv_capex": pv_capex,
         "battery_capex": bat_capex,
@@ -1269,6 +1427,7 @@ def run_analysis(
     pv_only = bundle["pv_only"]
     bat_only = bundle["battery_only"]
     both = bundle["pv_and_battery"]
+    trading_only = bundle.get("battery_trading_only")
     optimized = primary_optimized_scenario(bundle)
     econ_global = bundle["econ_global"]
     mrk_cfg = cfg.get("mrk") or {}
@@ -1301,6 +1460,19 @@ def run_analysis(
         econ=econ_global,
     )
     uncertainty = build_uncertainty_assessment(bundle, optimized=optimized)
+    battery_soh = None
+    if optimized is not None and bundle.get("use_bat"):
+        battery_soh = build_battery_soh_assessment(
+            equivalent_cycles_period=float(optimized.get("equivalent_full_cycles", 0.0)),
+            days_in_sample=days_in_sample,
+            battery_cfg=cfg.get("battery") or {},
+        )
+    c_rate_sweep = []
+    if bool((cfg.get("analysis") or {}).get("enable_c_rate_sweep", True)):
+        c_rates = (cfg.get("analysis") or {}).get("c_rate_sweep_values", [0.25, 0.5, 1.0])
+        c_rate_vals = [float(x) for x in c_rates if float(x) > 0]
+        if c_rate_vals:
+            c_rate_sweep = run_c_rate_sweep(cfg, df, c_rate_vals)
     optimized_label = str((optimized or {}).get("label") or "")
     prof = bundle.get("profiles_kw") or {}
     base_profile = prof.get("baseline_no_storage")
@@ -1412,6 +1584,7 @@ def run_analysis(
             "pv_only": pv_only,
             "battery_only": bat_only,
             "pv_and_battery": both,
+            "battery_trading_only": trading_only,
             "optimized": optimized,
         },
         "savings_vs_baseline": {
@@ -1435,11 +1608,51 @@ def run_analysis(
         "mrk_and_rv": mrk_rv_block,
         "input_quality": price_quality,
         "equipment": equipment_block,
+        "battery_lifetime_assessment": battery_soh,
+        "c_rate_sweep": c_rate_sweep,
         "artifacts": {
             "baseline_vs_optimized_profile_csv": str(profile_csv_path),
             "optimized_scenario_label": optimized_label,
         },
     }
+    if trading_only is not None:
+        base_trade = {
+            "label": "battery_trading_idle",
+            "total_operating_eur": 0.0,
+            "equivalent_full_cycles": 0.0,
+        }
+        days_trade = max(days_in_sample, 1e-9)
+        trade_annual = (0.0 - float(trading_only.get("total_operating_eur", 0.0))) * (365.0 / days_trade)
+        result["trading_only_analysis"] = {
+            "scenario": trading_only,
+            "annual_margin_eur_estimate": round(float(trade_annual), 2),
+            "note": "Trading-only battery scenario ignores site load and MRK; it reflects pure buy-low/sell-high arbitrage potential.",
+            "relative_to_idle_baseline": base_trade,
+        }
+
+    finance_cfg = cfg.get("finance") or {}
+    if finance_cfg.get("enabled", False) and optimized is not None:
+        annual_savings = (float(baseline["total_operating_eur"]) - float(optimized["total_operating_eur"])) * (
+            365.0 / max(days_in_sample, 1e-9)
+        )
+        total_capex = float(pv_capex + bat_capex)
+        result["finance_layer"] = apply_finance_layer(
+            annual_operating_savings_eur=annual_savings,
+            total_capex_eur=total_capex,
+            analysis_years=years,
+            discount_rate=dr,
+            finance_cfg=finance_cfg,
+        )
+        result["finance_layer"]["assumptions"] = {
+            "enabled": True,
+            "o_and_m_eur_per_year": float(finance_cfg.get("o_and_m_eur_per_year", 0.0)),
+            "o_and_m_pct_of_capex": float(finance_cfg.get("o_and_m_pct_of_capex", 0.0)),
+            "debt_ratio_of_capex": float(finance_cfg.get("debt_ratio_of_capex", 0.0)),
+            "debt_interest_rate": float(finance_cfg.get("debt_interest_rate", 0.0)),
+            "debt_years": int(finance_cfg.get("debt_years", max(1, years))),
+            "tax_rate_pct": float(finance_cfg.get("tax_rate_pct", 0.0)),
+            "ancillary_revenue_eur_per_year": float(finance_cfg.get("ancillary_revenue_eur_per_year", 0.0)),
+        }
 
     _write_report(out / "mrk_savings_report.json", result)
     return result
