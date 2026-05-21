@@ -19,6 +19,31 @@ from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
 
+# --- battery strategy (voliteľné prahy z BatteryStrategyOptimizerPiece) ---
+
+
+def load_battery_strategy_thresholds(path: Path | str | None) -> dict[str, float] | None:
+    """Načíta charge/discharge prahy z JSON; prázdny alebo chýbajúci súbor → None (auto z cien)."""
+    if not path:
+        return None
+    p = Path(path)
+    if not p.is_file():
+        return None
+    data = json.loads(p.read_text(encoding="utf-8"))
+    low = data.get("charge_below_eur_per_kwh")
+    high = data.get("discharge_above_eur_per_kwh")
+    if low is None or high is None:
+        return None
+    out: dict[str, float] = {
+        "price_low": float(low),
+        "price_high": float(high),
+    }
+    exp = data.get("expensive_hour_threshold_eur_per_kwh")
+    if exp is not None:
+        out["price_expensive"] = float(exp)
+    return out
+
+
 # --- load (historická spotreba) ---
 
 
@@ -185,6 +210,9 @@ def dispatch_battery(
     max_fraction_from_grid_charge: float = 0.72,
     excess_penalty_eur_per_kw: float = 0.0,
     peak_shaving_reserve_pct: float = 30.0,
+    price_low: float | None = None,
+    price_high: float | None = None,
+    price_expensive: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Dvojkomorový model: energia z FVE (spv) vs. zo siete (sg).
@@ -203,9 +231,9 @@ def dispatch_battery(
     p_batt = np.zeros(n)
 
     p = np.asarray(price, dtype=float)
-    p_low = float(np.quantile(p, 0.30))
-    p_high = float(np.quantile(p, 0.75))
-    p_exp = float(np.percentile(p, 70.0))
+    p_low = float(price_low) if price_low is not None else float(np.quantile(p, 0.30))
+    p_high = float(price_high) if price_high is not None else float(np.quantile(p, 0.75))
+    p_exp = float(price_expensive) if price_expensive is not None else float(np.percentile(p, 70.0))
     p_med = float(np.median(p))
     net_pos = np.maximum(np.asarray(net_load_kw, dtype=float), 0.0)
     charge_ceiling_kw = float(np.quantile(net_pos, 0.85)) if len(net_pos) else 0.0
@@ -458,14 +486,16 @@ def dispatch_trading_only(
     eta_c: float,
     eta_d: float,
     initial_soc_pct: float,
+    price_low: float | None = None,
+    price_high: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     n = len(price)
     if energy_kwh <= 1e-9 or n == 0:
         return np.zeros(n), np.zeros(n)
     pmax = max(0.0, max_c_rate * energy_kwh)
     p = np.asarray(price, dtype=float)
-    p_low = float(np.quantile(p, 0.30))
-    p_high = float(np.quantile(p, 0.75))
+    p_low = float(price_low) if price_low is not None else float(np.quantile(p, 0.30))
+    p_high = float(price_high) if price_high is not None else float(np.quantile(p, 0.75))
     soc = float(np.clip(initial_soc_pct, 0.0, 100.0)) / 100.0 * energy_kwh
     imp_kw = np.zeros(n)
     exp_kw = np.zeros(n)
@@ -1091,9 +1121,20 @@ def build_hardware_recommendation(
     return out
 
 
-def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
+def _sim_bundle(
+    cfg: dict[str, Any],
+    df: pd.DataFrame,
+    *,
+    battery_strategy_thresholds: dict[str, float] | None = None,
+) -> dict[str, Any]:
     """Jedna plná ekonomická simulácia (baseline + scenáre) pre danú konfiguráciu."""
     dt_h = infer_timestep_hours(df)
+    strat = battery_strategy_thresholds or {}
+    kw_dispatch = {
+        k: strat[k]
+        for k in ("price_low", "price_high", "price_expensive")
+        if k in strat
+    }
     price = build_price_series(df, cfg)
     load = df["load_kw"].astype(float).values
     n = len(df)
@@ -1176,6 +1217,8 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
                 eta_c=eta_c,
                 eta_d=eta_d,
                 initial_soc_pct=soc0,
+                price_low=kw_dispatch.get("price_low"),
+                price_high=kw_dispatch.get("price_high"),
             )
             soc = np.full(n, np.nan)
             cycles = float(np.sum((np.clip(grid, 0.0, None) * dt_h * eta_c) / max(e_kwh, 1e-9)))
@@ -1196,6 +1239,9 @@ def _sim_bundle(cfg: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
                 max_fraction_from_grid_charge=max_frac_grid,
                 excess_penalty_eur_per_kw=pen,
                 peak_shaving_reserve_pct=peak_reserve_pct,
+                price_low=kw_dispatch.get("price_low"),
+                price_high=kw_dispatch.get("price_high"),
+                price_expensive=kw_dispatch.get("price_expensive"),
             )
             grid = g
             cycles = equivalent_full_cycles(pd.Series(soc))
@@ -1399,6 +1445,7 @@ def run_analysis(
     output_dir: Path | str | None = None,
     battery_catalog_json: str = "",
     inverter_catalog_json: str = "",
+    battery_strategy_recommendation_json: str = "",
 ) -> dict[str, Any]:
     csv_path = Path(csv_path)
     scenario_path = Path(scenario_path)
@@ -1422,7 +1469,8 @@ def run_analysis(
     if selection_mode == "auto":
         cfg, auto_log = _auto_optimize_sizes(cfg, df)
 
-    bundle = _sim_bundle(cfg, df)
+    strategy_thresholds = load_battery_strategy_thresholds(battery_strategy_recommendation_json)
+    bundle = _sim_bundle(cfg, df, battery_strategy_thresholds=strategy_thresholds)
     baseline = bundle["baseline"]
     pv_only = bundle["pv_only"]
     bat_only = bundle["battery_only"]
@@ -1615,6 +1663,22 @@ def run_analysis(
             "optimized_scenario_label": optimized_label,
         },
     }
+    if strategy_thresholds:
+        result["battery_strategy"] = {
+            "source_json": str(battery_strategy_recommendation_json),
+            "thresholds_eur_per_kwh": {
+                "charge_below": strategy_thresholds.get("price_low"),
+                "discharge_above": strategy_thresholds.get("price_high"),
+                "expensive_hour": strategy_thresholds.get("price_expensive"),
+            },
+            "applied_in_dispatch": True,
+        }
+    else:
+        result["battery_strategy"] = {
+            "source_json": str(battery_strategy_recommendation_json or ""),
+            "applied_in_dispatch": False,
+            "note": "Dispatch uses price quantiles computed inside SimulatePiece.",
+        }
     if trading_only is not None:
         base_trade = {
             "label": "battery_trading_idle",
@@ -1677,6 +1741,7 @@ class SimulatePiece(BasePiece):
         _log(f"Input load_csv={csv_path}")
         _log(f"Input scenario_yaml={scenario_path}")
         _log(f"Input output_dir={input_data.output_dir}")
+        _log(f"Input battery_strategy_recommendation_json={input_data.battery_strategy_recommendation_json}")
         if not csv_path.is_file():
             raise FileNotFoundError(f"Load CSV not found: {csv_path}")
         if not scenario_path.is_file():
@@ -1689,6 +1754,7 @@ class SimulatePiece(BasePiece):
                 output_dir=out_dir,
                 battery_catalog_json=input_data.battery_catalog_json,
                 inverter_catalog_json=input_data.inverter_catalog_json,
+                battery_strategy_recommendation_json=input_data.battery_strategy_recommendation_json,
             )
         except Exception as exc:
             (out_dir / "simulate_error.txt").write_text(traceback.format_exc(), encoding="utf-8")

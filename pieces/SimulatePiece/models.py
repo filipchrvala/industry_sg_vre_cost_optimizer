@@ -9,6 +9,10 @@ class InputModel(BaseModel):
     inverter_catalog_json: str = Field(default="", description="Optional inverter catalog JSON")
     battery_catalog_json: str = Field(default="", description="Optional battery catalog JSON")
     catalog_manifest_json: str = Field(default="", description="Optional catalog sync manifest JSON")
+    battery_strategy_recommendation_json: str = Field(
+        default="",
+        description="Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+    )
 
 
 class OutputModel(BaseModel):
