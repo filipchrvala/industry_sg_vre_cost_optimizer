@@ -1,38 +1,24 @@
 from __future__ import annotations
 
-import importlib
-from pathlib import Path
 import sys
 import traceback
+from pathlib import Path
 
 import pandas as pd
 import yaml
 from domino.base_piece import BasePiece
 
-from .models import InputModel, OutputModel
-
-# Domino loads this module before piece_function — keep imports minimal and local.
-_SIMULATE_MODULE_CANDIDATES = (
-    "pieces.SimulateMRKScenarioPiece.piece",
-    "pieces.SimulatePiece.piece",
+from pieces.mrk_core import (
+    build_price_series,
+    dispatch_battery,
+    equivalent_full_cycles,
+    infer_timestep_hours,
+    load_consumption_csv,
 )
 
+from .models import InputModel, OutputModel
 
-def _load_simulate_module():
-    """Same pattern as 0.1.8, with fallback for older Docker images."""
-    repo_root = Path(__file__).resolve().parents[2]
-    repo_s = str(repo_root)
-    if repo_s not in sys.path:
-        sys.path.insert(0, repo_s)
-    last_err: ModuleNotFoundError | None = None
-    for module_name in _SIMULATE_MODULE_CANDIDATES:
-        try:
-            return importlib.import_module(module_name)
-        except ModuleNotFoundError as exc:
-            last_err = exc
-    raise ModuleNotFoundError(
-        "Missing simulate module. Tried: " + ", ".join(_SIMULATE_MODULE_CANDIDATES)
-    ) from last_err
+print("[BatterySimulationPiece] module import OK", file=sys.stderr, flush=True)
 
 
 def _align_load_and_solar(load_df: pd.DataFrame, solar_df: pd.DataFrame) -> pd.DataFrame:
@@ -63,6 +49,7 @@ class BatterySimulationPiece(BasePiece):
         out_dir = Path(self.results_path or scenario_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / "battery_sim.log"
+        (out_dir / "battery_sim_boot.txt").write_text("boot ok\n", encoding="utf-8")
 
         def _log(msg: str) -> None:
             text = f"[BatterySimulationPiece] {msg}"
@@ -87,9 +74,8 @@ class BatterySimulationPiece(BasePiece):
             raise FileNotFoundError(f"Virtual solar CSV not found: {solar_path}")
 
         try:
-            sim = _load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
-            load_df = sim.load_consumption_csv(csv_path)
+            load_df = load_consumption_csv(csv_path)
             solar_df = pd.read_csv(solar_path)
             merged = _align_load_and_solar(load_df, solar_df)
             if len(merged) != len(load_df):
@@ -116,8 +102,8 @@ class BatterySimulationPiece(BasePiece):
                 cycles = 0.0
                 throughput_mwh = 0.0
             else:
-                dt_h = sim.infer_timestep_hours(df)
-                price = sim.build_price_series(df, cfg).values.astype(float)
+                dt_h = infer_timestep_hours(df)
+                price = build_price_series(df, cfg).values.astype(float)
                 net = merged["load_kw"].astype(float).values - merged["pv_kw"].astype(float).values
                 if len(net) != len(price):
                     raise ValueError(
@@ -126,7 +112,7 @@ class BatterySimulationPiece(BasePiece):
 
                 mrk = cfg.get("mrk") or {}
                 en = cfg.get("energy") or {}
-                _g, soc, _pb, _exp = sim.dispatch_battery(
+                _g, soc, _pb, _exp = dispatch_battery(
                     net_load_kw=net,
                     price=price,
                     dt_h=dt_h,
@@ -144,7 +130,7 @@ class BatterySimulationPiece(BasePiece):
                     ),
                 )
                 out_df = pd.DataFrame({"datetime": merged["datetime"], "soc_pct": soc})
-                cycles = float(sim.equivalent_full_cycles(pd.Series(soc)))
+                cycles = float(equivalent_full_cycles(pd.Series(soc)))
                 throughput_mwh = float(
                     (pd.Series(soc).diff().abs().fillna(0.0).sum() / 100.0) * energy_kwh / 1000.0
                 )
@@ -159,9 +145,9 @@ class BatterySimulationPiece(BasePiece):
                 ]
             )
             _log(f"Computed battery SOC rows={len(out_df)}")
-        except Exception as exc:
+        except Exception:
             (out_dir / "battery_sim_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
-            _log(f"ERROR during battery simulation: {exc}")
+            _log(f"ERROR during battery simulation:\n{traceback.format_exc()}")
             raise
 
         out_csv = out_dir / "virtual_battery_soc.csv"
