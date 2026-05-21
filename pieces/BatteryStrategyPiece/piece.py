@@ -56,11 +56,16 @@ class BatteryStrategyPiece(BasePiece):
             }
             _log(f"Computed thresholds from rows={len(df)}")
         except Exception as exc:
-            (out_dir / "battery_strategy_optimizer_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            (out_dir / "battery_strategy_optimizer_error.txt").write_text(
+                traceback.format_exc(), encoding="utf-8"
+            )
             _log(f"ERROR during strategy optimization: {exc}")
             raise
 
         out_json = out_dir / "battery_strategy_recommendation.json"
         out_json.write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
         _log(f"Wrote output: {out_json}")
-        return OutputModel(message="Battery strategy optimized", battery_strategy_recommendation_json=str(out_json))
+        return OutputModel(
+            message="Battery strategy optimized",
+            battery_strategy_recommendation_json=str(out_json),
+        )
