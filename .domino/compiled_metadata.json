@@ -1,4 +1,164 @@
 {
+    "SimulateMRKScenarioPiece": {
+        "name": "SimulateMRKScenarioPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "SimulateMRKScenarioPiece",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:calculator",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Run MRK simulation baseline/PV/battery",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                },
+                "output_dir": {
+                    "default": "",
+                    "description": "Optional output dir when results_path is not set",
+                    "title": "Output Dir",
+                    "type": "string"
+                },
+                "ranked_catalog_json": {
+                    "default": "",
+                    "description": "Optional ranked catalog recommendation JSON",
+                    "title": "Ranked Catalog Json",
+                    "type": "string"
+                },
+                "inverter_catalog_json": {
+                    "default": "",
+                    "description": "Optional inverter catalog JSON",
+                    "title": "Inverter Catalog Json",
+                    "type": "string"
+                },
+                "battery_catalog_json": {
+                    "default": "",
+                    "description": "Optional battery catalog JSON",
+                    "title": "Battery Catalog Json",
+                    "type": "string"
+                },
+                "catalog_manifest_json": {
+                    "default": "",
+                    "description": "Optional catalog sync manifest JSON",
+                    "title": "Catalog Manifest Json",
+                    "type": "string"
+                },
+                "battery_strategy_recommendation_json": {
+                    "default": "",
+                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
+                    "title": "Battery Strategy Recommendation Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "report_json": {
+                    "title": "Report Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "report_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulateMRKScenarioPiece"
+    },
+    "SolarSimulationPiece": {
+        "name": "SolarSimulationPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "SolarSimulationPiece",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:sun",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Generate synthetic PV profile for selected sizing",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "load_csv": {
+                    "description": "Path to historical load CSV",
+                    "title": "Load Csv",
+                    "type": "string"
+                },
+                "scenario_yaml": {
+                    "description": "Path to sized scenario YAML",
+                    "title": "Scenario Yaml",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "load_csv",
+                "scenario_yaml"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "virtual_solar_csv": {
+                    "title": "Virtual Solar Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "virtual_solar_csv"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimulationPiece"
+    },
     "ComputeKPIsPiece": {
         "name": "ComputeKPIsPiece",
         "dependency": {
@@ -122,26 +282,26 @@
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/TechnicalLimitsPiece"
     },
-    "SolarSimulationPiece": {
-        "name": "SolarSimulationPiece",
+    "BatteryStrategyPiece": {
+        "name": "BatteryStrategyPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "SolarSimulationPiece",
+            "node_label": "BatteryStrategyPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
             },
             "useIcon": true,
-            "icon_class_name": "fa-solid:sun",
+            "icon_class_name": "fa-solid:sliders",
             "iconStyle": {
                 "cursor": "pointer"
             }
         },
-        "description": "Generate synthetic PV profile for selected sizing",
+        "description": "Create battery dispatch strategy recommendation",
         "dependencies_group": "0",
         "input_schema": {
             "properties": {
@@ -169,20 +329,87 @@
                     "title": "Message",
                     "type": "string"
                 },
-                "virtual_solar_csv": {
-                    "title": "Virtual Solar Csv",
+                "battery_strategy_recommendation_json": {
+                    "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 }
             },
             "required": [
                 "message",
-                "virtual_solar_csv"
+                "battery_strategy_recommendation_json"
             ],
             "title": "OutputModel",
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimulationPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyPiece"
+    },
+    "InvestmentEvaluationPiece": {
+        "name": "InvestmentEvaluationPiece",
+        "dependency": {
+            "dockerfile": null,
+            "requirements_file": "requirements_0.txt"
+        },
+        "tags": [],
+        "style": {
+            "node_label": "InvestmentEvaluationPiece",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:coins",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Compute investment evaluation from simulated KPIs",
+        "dependencies_group": "0",
+        "input_schema": {
+            "properties": {
+                "report_json": {
+                    "description": "Path to mrk_savings_report.json",
+                    "title": "Report Json",
+                    "type": "string"
+                },
+                "kpi_results_csv": {
+                    "description": "Path to kpi_results.csv",
+                    "title": "Kpi Results Csv",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "report_json",
+                "kpi_results_csv"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "investment_evaluation_csv": {
+                    "title": "Investment Evaluation Csv",
+                    "type": "string"
+                },
+                "investment_evaluation_json": {
+                    "title": "Investment Evaluation Json",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "investment_evaluation_csv",
+                "investment_evaluation_json"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": null,
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvaluationPiece"
     },
     "DashboardDataPiece": {
         "name": "DashboardDataPiece",
@@ -393,73 +620,6 @@
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/UserInputPiece"
     },
-    "InvestmentEvaluationPiece": {
-        "name": "InvestmentEvaluationPiece",
-        "dependency": {
-            "dockerfile": null,
-            "requirements_file": "requirements_0.txt"
-        },
-        "tags": [],
-        "style": {
-            "node_label": "InvestmentEvaluationPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:coins",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
-        },
-        "description": "Compute investment evaluation from simulated KPIs",
-        "dependencies_group": "0",
-        "input_schema": {
-            "properties": {
-                "report_json": {
-                    "description": "Path to mrk_savings_report.json",
-                    "title": "Report Json",
-                    "type": "string"
-                },
-                "kpi_results_csv": {
-                    "description": "Path to kpi_results.csv",
-                    "title": "Kpi Results Csv",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "report_json",
-                "kpi_results_csv"
-            ],
-            "title": "InputModel",
-            "type": "object"
-        },
-        "output_schema": {
-            "properties": {
-                "message": {
-                    "title": "Message",
-                    "type": "string"
-                },
-                "investment_evaluation_csv": {
-                    "title": "Investment Evaluation Csv",
-                    "type": "string"
-                },
-                "investment_evaluation_json": {
-                    "title": "Investment Evaluation Json",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "message",
-                "investment_evaluation_csv",
-                "investment_evaluation_json"
-            ],
-            "title": "OutputModel",
-            "type": "object"
-        },
-        "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvaluationPiece"
-    },
     "SizingOptimizationPiece": {
         "name": "SizingOptimizationPiece",
         "dependency": {
@@ -532,166 +692,6 @@
         },
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SizingOptimizationPiece"
-    },
-    "SimulateMRKScenarioPiece": {
-        "name": "SimulateMRKScenarioPiece",
-        "dependency": {
-            "dockerfile": null,
-            "requirements_file": "requirements_0.txt"
-        },
-        "tags": [],
-        "style": {
-            "node_label": "SimulateMRKScenarioPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:calculator",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
-        },
-        "description": "Run MRK simulation baseline/PV/battery",
-        "dependencies_group": "0",
-        "input_schema": {
-            "properties": {
-                "load_csv": {
-                    "description": "Path to historical load CSV",
-                    "title": "Load Csv",
-                    "type": "string"
-                },
-                "scenario_yaml": {
-                    "description": "Path to scenario YAML",
-                    "title": "Scenario Yaml",
-                    "type": "string"
-                },
-                "output_dir": {
-                    "default": "",
-                    "description": "Optional output dir when results_path is not set",
-                    "title": "Output Dir",
-                    "type": "string"
-                },
-                "ranked_catalog_json": {
-                    "default": "",
-                    "description": "Optional ranked catalog recommendation JSON",
-                    "title": "Ranked Catalog Json",
-                    "type": "string"
-                },
-                "inverter_catalog_json": {
-                    "default": "",
-                    "description": "Optional inverter catalog JSON",
-                    "title": "Inverter Catalog Json",
-                    "type": "string"
-                },
-                "battery_catalog_json": {
-                    "default": "",
-                    "description": "Optional battery catalog JSON",
-                    "title": "Battery Catalog Json",
-                    "type": "string"
-                },
-                "catalog_manifest_json": {
-                    "default": "",
-                    "description": "Optional catalog sync manifest JSON",
-                    "title": "Catalog Manifest Json",
-                    "type": "string"
-                },
-                "battery_strategy_recommendation_json": {
-                    "default": "",
-                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
-                    "title": "Battery Strategy Recommendation Json",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "load_csv",
-                "scenario_yaml"
-            ],
-            "title": "InputModel",
-            "type": "object"
-        },
-        "output_schema": {
-            "properties": {
-                "message": {
-                    "title": "Message",
-                    "type": "string"
-                },
-                "report_json": {
-                    "title": "Report Json",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "message",
-                "report_json"
-            ],
-            "title": "OutputModel",
-            "type": "object"
-        },
-        "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulateMRKScenarioPiece"
-    },
-    "BatteryStrategyPiece": {
-        "name": "BatteryStrategyPiece",
-        "dependency": {
-            "dockerfile": null,
-            "requirements_file": "requirements_0.txt"
-        },
-        "tags": [],
-        "style": {
-            "node_label": "BatteryStrategyPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:sliders",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
-        },
-        "description": "Create battery dispatch strategy recommendation",
-        "dependencies_group": "0",
-        "input_schema": {
-            "properties": {
-                "load_csv": {
-                    "description": "Path to historical load CSV",
-                    "title": "Load Csv",
-                    "type": "string"
-                },
-                "scenario_yaml": {
-                    "description": "Path to sized scenario YAML",
-                    "title": "Scenario Yaml",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "load_csv",
-                "scenario_yaml"
-            ],
-            "title": "InputModel",
-            "type": "object"
-        },
-        "output_schema": {
-            "properties": {
-                "message": {
-                    "title": "Message",
-                    "type": "string"
-                },
-                "battery_strategy_recommendation_json": {
-                    "title": "Battery Strategy Recommendation Json",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "message",
-                "battery_strategy_recommendation_json"
-            ],
-            "title": "OutputModel",
-            "type": "object"
-        },
-        "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyPiece"
     },
     "CatalogSyncPiece": {
         "name": "CatalogSyncPiece",
