@@ -1,8 +1,5 @@
 ﻿from __future__ import annotations
 
-import importlib
-import os
-import sys
 import traceback
 from pathlib import Path
 
@@ -10,45 +7,26 @@ import pandas as pd
 import yaml
 from domino.base_piece import BasePiece
 
+from .battery_dispatch import (
+    build_price_series,
+    dispatch_battery,
+    equivalent_full_cycles,
+    infer_timestep_hours,
+    load_consumption_csv,
+    read_solar_pv_kw,
+)
 from .models import InputModel, OutputModel
-
-PIECE_BUILD = "0.1.20"
-
-
-def _load_simulate_module():
-    repo_root = Path(__file__).resolve().parents[2]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulateMRKScenarioPiece.piece")
-
-
-def _resolve_out_dir(piece: BasePiece, *fallbacks: Path) -> Path:
-    for candidate in (
-        piece.results_path,
-        os.environ.get("DOMINO_PIECE_RESULTS_DIR"),
-        os.environ.get("PIECE_RESULTS_DIR"),
-    ):
-        if candidate:
-            p = Path(candidate)
-            p.mkdir(parents=True, exist_ok=True)
-            return p
-    for fb in fallbacks:
-        if fb:
-            fb.mkdir(parents=True, exist_ok=True)
-            return fb
-    tmp = Path("/tmp/domino_battery_results")
-    tmp.mkdir(parents=True, exist_ok=True)
-    return tmp
 
 
 class BatterySimulationPiece(BasePiece):
-    """Battery SOC via SimulateMRKScenarioPiece dispatch (post-rename Domino-safe path)."""
+    """Generate battery SOC timeseries (Domino-safe: no import of SimulateMRKScenarioPiece)."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
         solar_path = Path(input_data.virtual_solar_csv)
-        out_dir = _resolve_out_dir(self, Path.cwd() / "battery_results")
+        out_dir = Path(self.results_path or scenario_path.parent)
+        out_dir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / "battery_sim.log"
 
         def _log(msg: str) -> None:
@@ -57,14 +35,10 @@ class BatterySimulationPiece(BasePiece):
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")
 
-        (out_dir / "battery_sim_started.txt").write_text(
-            f"build={PIECE_BUILD}\nresults_path={self.results_path}\nout_dir={out_dir}\n",
-            encoding="utf-8",
-        )
-
         _log(f"Input load_csv={csv_path}")
         _log(f"Input scenario_yaml={scenario_path}")
         _log(f"Input virtual_solar_csv={solar_path}")
+        _log(f"results_path={self.results_path}")
         if not csv_path.is_file():
             raise FileNotFoundError(f"Load CSV not found: {csv_path}")
         if not scenario_path.is_file():
@@ -73,27 +47,18 @@ class BatterySimulationPiece(BasePiece):
             raise FileNotFoundError(f"Virtual solar CSV not found: {solar_path}")
 
         try:
-            sim = _load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
-            df = sim.load_consumption_csv(csv_path)
-            solar_df = pd.read_csv(solar_path, sep=None, engine="python", encoding="utf-8-sig")
-            solar_df.columns = [c.strip().lower().replace(" ", "_") for c in solar_df.columns]
-            if "pv_kw" not in solar_df.columns:
-                raise ValueError("virtual_solar_csv must contain pv_kw column")
-            if len(solar_df) != len(df):
-                raise ValueError(
-                    f"load rows ({len(df)}) and solar rows ({len(solar_df)}) differ; "
-                    "re-run SolarSimulationPiece on the same load_csv"
-                )
+            df = load_consumption_csv(csv_path)
+            pv_kw = read_solar_pv_kw(solar_path, df)
 
-            dt_h = sim.infer_timestep_hours(df)
-            price = sim.build_price_series(df, cfg).values.astype(float)
-            net = df["load_kw"].astype(float).values - solar_df["pv_kw"].astype(float).values
+            dt_h = infer_timestep_hours(df)
+            price = build_price_series(df, cfg).values.astype(float)
+            net = df["load_kw"].astype(float).values - pv_kw
 
             bat = cfg.get("battery") or {}
             mrk = cfg.get("mrk") or {}
             en = cfg.get("energy") or {}
-            _g, soc, _pb, _exp = sim.dispatch_battery(
+            _g, soc, _pb, _exp = dispatch_battery(
                 net_load_kw=net,
                 price=price,
                 dt_h=dt_h,
@@ -111,7 +76,7 @@ class BatterySimulationPiece(BasePiece):
                 ),
             )
             out_df = pd.DataFrame({"datetime": df["datetime"], "soc_pct": soc})
-            cycles = float(sim.equivalent_full_cycles(pd.Series(soc)))
+            cycles = float(equivalent_full_cycles(pd.Series(soc)))
             energy_kwh = float(bat.get("energy_kwh", 0.0))
             throughput_mwh = float(
                 (pd.Series(soc).diff().abs().fillna(0.0).sum() / 100.0) * energy_kwh / 1000.0

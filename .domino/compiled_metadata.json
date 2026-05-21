@@ -5,7 +5,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "SimulateMRKScenarioPiece",
             "node_type": "default",
@@ -95,7 +97,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulateMRKScenarioPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulateMRKScenarioPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "SolarSimulationPiece": {
         "name": "SolarSimulationPiece",
@@ -103,7 +115,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "SolarSimulationPiece",
             "node_type": "default",
@@ -157,7 +171,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimulationPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimulationPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "ComputeKPIsPiece": {
         "name": "ComputeKPIsPiece",
@@ -165,7 +189,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "ComputeKPIsPiece",
             "node_type": "default",
@@ -213,7 +239,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/ComputeKPIsPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/ComputeKPIsPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "TechnicalLimitsPiece": {
         "name": "TechnicalLimitsPiece",
@@ -221,7 +257,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "TechnicalLimitsPiece",
             "node_type": "default",
@@ -280,7 +318,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/TechnicalLimitsPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/TechnicalLimitsPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "BatteryStrategyPiece": {
         "name": "BatteryStrategyPiece",
@@ -288,7 +336,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "BatteryStrategyPiece",
             "node_type": "default",
@@ -342,7 +392,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "InvestmentEvaluationPiece": {
         "name": "InvestmentEvaluationPiece",
@@ -350,7 +410,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "InvestmentEvaluationPiece",
             "node_type": "default",
@@ -409,7 +471,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvaluationPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvaluationPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "DashboardDataPiece": {
         "name": "DashboardDataPiece",
@@ -417,7 +489,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "DashboardDataPiece",
             "node_type": "default",
@@ -472,7 +546,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/DashboardDataPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/DashboardDataPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "BatterySimulationPiece": {
         "name": "BatterySimulationPiece",
@@ -480,7 +564,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "BatterySimulationPiece",
             "node_type": "default",
@@ -545,7 +631,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatterySimulationPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatterySimulationPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "UserInputPiece": {
         "name": "UserInputPiece",
@@ -553,7 +649,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "UserInputPiece",
             "node_type": "default",
@@ -618,7 +716,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/UserInputPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/UserInputPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "SizingOptimizationPiece": {
         "name": "SizingOptimizationPiece",
@@ -626,7 +734,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "SizingOptimizationPiece",
             "node_type": "default",
@@ -691,7 +801,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SizingOptimizationPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SizingOptimizationPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "CatalogSyncPiece": {
         "name": "CatalogSyncPiece",
@@ -699,7 +819,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "CatalogSyncPiece",
             "node_type": "default",
@@ -767,7 +889,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogSyncPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogSyncPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     },
     "CatalogRankerPiece": {
         "name": "CatalogRankerPiece",
@@ -775,7 +907,9 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [],
+        "tags": [
+            "Energy"
+        ],
         "style": {
             "node_label": "CatalogRankerPiece",
             "node_type": "default",
@@ -829,6 +963,16 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogRankerPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/CatalogRankerPiece",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        }
     }
 }

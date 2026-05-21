@@ -44,6 +44,25 @@ UPSTREAM_ID_REPLACEMENTS = [
 ]
 
 
+def _default_container_resources(piece_name: str) -> dict:
+    """Read limits/requests from pieces/<Name>/metadata.json (Domino publish source)."""
+    meta_path = PIECES / piece_name / "metadata.json"
+    if meta_path.is_file():
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        cr = meta.get("container_resources")
+        if cr:
+            return {
+                "requests": cr.get("requests", {"cpu": 100, "memory": 128}),
+                "limits": cr.get("limits", {"cpu": 500, "memory": 512}),
+                "use_gpu": False,
+            }
+    return {
+        "requests": {"cpu": 100, "memory": 128},
+        "limits": {"cpu": 500, "memory": 512},
+        "use_gpu": False,
+    }
+
+
 def _load_piece_metadata() -> dict[str, dict]:
     out: dict[str, dict] = {}
     for meta_path in sorted(PIECES.glob("*/metadata.json")):
@@ -69,11 +88,7 @@ def _piece_entry_from_repo(name: str, meta: dict, source_image: str) -> dict:
         "input_schema": {},  # filled below from compiled if needed
         "output_schema": {},
         "secrets_schema": None,
-        "container_resources": {
-            "requests": {"cpu": 100, "memory": 128},
-            "limits": {"cpu": 100, "memory": 128},
-            "use_gpu": False,
-        },
+        "container_resources": _default_container_resources(name),
         "tags": [],
         "style": {
             "module": module,
@@ -169,8 +184,14 @@ def main() -> None:
             f"https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/{piece_name}"
         )
 
-        if node_id in data.get("workflowNodes", []):
-            pass
+        cr = _default_container_resources(piece_name)
+        entry["container_resources"] = cr
+        if node_id in wpd:
+            wpd[node_id].setdefault("containerResources", {})
+            wpd[node_id]["containerResources"]["memory"] = cr["limits"]["memory"]
+            wpd[node_id]["containerResources"]["cpu"] = cr["limits"].get("cpu", 500)
+            wpd[node_id]["containerResources"]["useGpu"] = False
+
         for node in data.get("workflowNodes", []):
             if node.get("id") == node_id:
                 node["data"]["name"] = piece_name
