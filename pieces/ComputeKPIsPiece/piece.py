@@ -10,7 +10,7 @@ from domino.base_piece import BasePiece
 from .models import InputModel, OutputModel
 
 
-class KPIPiece(BasePiece):
+class ComputeKPIsPiece(BasePiece):
     """Extract compact KPI table from MRK report JSON."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -20,7 +20,7 @@ class KPIPiece(BasePiece):
         log_path = out_dir / "kpi.log"
 
         def _log(msg: str) -> None:
-            text = f"[KPIPiece] {msg}"
+            text = f"[ComputeKPIsPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

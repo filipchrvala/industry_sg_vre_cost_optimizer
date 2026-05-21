@@ -1,13 +1,13 @@
 {
-    "KPIPiece": {
-        "name": "KPIPiece",
+    "ComputeKPIsPiece": {
+        "name": "ComputeKPIsPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Compute KPIs",
+            "node_label": "ComputeKPIsPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -53,7 +53,7 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/KPIPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/ComputeKPIsPiece"
     },
     "TechnicalLimitsPiece": {
         "name": "TechnicalLimitsPiece",
@@ -63,7 +63,7 @@
         },
         "tags": [],
         "style": {
-            "node_label": "Technical Limits",
+            "node_label": "TechnicalLimitsPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -122,15 +122,15 @@
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/TechnicalLimitsPiece"
     },
-    "SolarSimPiece": {
-        "name": "SolarSimPiece",
+    "SolarSimulationPiece": {
+        "name": "SolarSimulationPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Solar Simulation",
+            "node_label": "SolarSimulationPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -182,17 +182,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SolarSimulationPiece"
     },
-    "DashboardPiece": {
-        "name": "DashboardPiece",
+    "DashboardDataPiece": {
+        "name": "DashboardDataPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Dashboard Data",
+            "node_label": "DashboardDataPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -245,17 +245,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/DashboardPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/DashboardDataPiece"
     },
-    "BatterySimPiece": {
-        "name": "BatterySimPiece",
+    "BatterySimulationPiece": {
+        "name": "BatterySimulationPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Battery Simulation",
+            "node_label": "BatterySimulationPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -318,7 +318,7 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatterySimPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatterySimulationPiece"
     },
     "UserInputPiece": {
         "name": "UserInputPiece",
@@ -328,7 +328,7 @@
         },
         "tags": [],
         "style": {
-            "node_label": "User Input",
+            "node_label": "UserInputPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -393,15 +393,15 @@
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/UserInputPiece"
     },
-    "InvestmentEvalPiece": {
-        "name": "InvestmentEvalPiece",
+    "InvestmentEvaluationPiece": {
+        "name": "InvestmentEvaluationPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Investment Evaluation",
+            "node_label": "InvestmentEvaluationPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -458,7 +458,7 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvalPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/InvestmentEvaluationPiece"
     },
     "SizingOptimizationPiece": {
         "name": "SizingOptimizationPiece",
@@ -468,7 +468,7 @@
         },
         "tags": [],
         "style": {
-            "node_label": "Sizing Optimization",
+            "node_label": "SizingOptimizationPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -533,15 +533,15 @@
         "secrets_schema": null,
         "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SizingOptimizationPiece"
     },
-    "SimulatePiece": {
-        "name": "SimulatePiece",
+    "SimulateMRKScenarioPiece": {
+        "name": "SimulateMRKScenarioPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Simulate MRK Scenario",
+            "node_label": "SimulateMRKScenarioPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -598,7 +598,7 @@
                 },
                 "battery_strategy_recommendation_json": {
                     "default": "",
-                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
                     "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 }
@@ -629,17 +629,17 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulatePiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/SimulateMRKScenarioPiece"
     },
-    "BatteryStrategyOptimizerPiece": {
-        "name": "BatteryStrategyOptimizerPiece",
+    "BatteryStrategyPiece": {
+        "name": "BatteryStrategyPiece",
         "dependency": {
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
-            "node_label": "Battery Strategy",
+            "node_label": "BatteryStrategyPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -691,7 +691,7 @@
             "type": "object"
         },
         "secrets_schema": null,
-        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyOptimizerPiece"
+        "source_url": "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/BatteryStrategyPiece"
     },
     "CatalogSyncPiece": {
         "name": "CatalogSyncPiece",
@@ -701,7 +701,7 @@
         },
         "tags": [],
         "style": {
-            "node_label": "Catalog Sync",
+            "node_label": "CatalogSyncPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"
@@ -777,7 +777,7 @@
         },
         "tags": [],
         "style": {
-            "node_label": "Catalog Ranker",
+            "node_label": "CatalogRankerPiece",
             "node_type": "default",
             "node_style": {
                 "backgroundColor": "#ebebeb"

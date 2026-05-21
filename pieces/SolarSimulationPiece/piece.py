@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import json
 from pathlib import Path
 import sys
 import traceback
 
-import numpy as np
+import pandas as pd
 import yaml
 from domino.base_piece import BasePiece
 
@@ -17,21 +16,21 @@ def _load_simulate_module():
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulatePiece.piece")
+    return importlib.import_module("pieces.SimulateMRKScenarioPiece.piece")
 
 
-class BatteryStrategyOptimizerPiece(BasePiece):
-    """Build simple price-driven strategy thresholds for battery operation."""
+class SolarSimulationPiece(BasePiece):
+    """Create virtual PV production CSV from selected scenario."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
         out_dir = Path(self.results_path or scenario_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
-        log_path = out_dir / "battery_strategy_optimizer.log"
+        log_path = out_dir / "solar_sim.log"
 
         def _log(msg: str) -> None:
-            text = f"[BatteryStrategyOptimizerPiece] {msg}"
+            text = f"[SolarSimulationPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")
@@ -46,21 +45,19 @@ class BatteryStrategyOptimizerPiece(BasePiece):
         try:
             sim = _load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
+            pv = cfg.get("pv") or {}
+            installed_kwp = float(pv.get("installed_kwp", 0.0))
+            yield_kwp = float(pv.get("yield_kwh_per_kwp_year", 1000.0))
             df = sim.load_consumption_csv(csv_path)
-            price = sim.build_price_series(df, cfg).values.astype(float)
-            rec = {
-                "charge_below_eur_per_kwh": round(float(np.quantile(price, 0.30)), 6),
-                "discharge_above_eur_per_kwh": round(float(np.quantile(price, 0.75)), 6),
-                "expensive_hour_threshold_eur_per_kwh": round(float(np.percentile(price, 70.0)), 6),
-                "strategy_note": "Thresholds aligned to dispatch logic in SimulatePiece.",
-            }
-            _log(f"Computed thresholds from rows={len(df)}")
+            pv_kw = sim.synthetic_pv_kw(df["datetime"], installed_kwp, yield_kwh_per_kwp_year=yield_kwp)
+            out_df = pd.DataFrame({"datetime": df["datetime"], "pv_kw": pv_kw})
+            _log(f"Computed virtual solar rows={len(out_df)}, installed_kwp={installed_kwp}")
         except Exception as exc:
-            (out_dir / "battery_strategy_optimizer_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
-            _log(f"ERROR during strategy optimization: {exc}")
+            (out_dir / "solar_sim_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            _log(f"ERROR during solar simulation: {exc}")
             raise
 
-        out_json = out_dir / "battery_strategy_recommendation.json"
-        out_json.write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
-        _log(f"Wrote output: {out_json}")
-        return OutputModel(message="Battery strategy optimized", battery_strategy_recommendation_json=str(out_json))
+        out_csv = out_dir / "virtual_solar.csv"
+        out_df.to_csv(out_csv, index=False)
+        _log(f"Wrote output: {out_csv}")
+        return OutputModel(message="Solar simulation finished", virtual_solar_csv=str(out_csv))

@@ -19,7 +19,7 @@ from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
 
-# --- battery strategy (voliteľné prahy z BatteryStrategyOptimizerPiece) ---
+# --- battery strategy (voliteľné prahy z BatteryStrategyPiece) ---
 
 
 def load_battery_strategy_thresholds(path: Path | str | None) -> dict[str, float] | None:
@@ -1677,7 +1677,7 @@ def run_analysis(
         result["battery_strategy"] = {
             "source_json": str(battery_strategy_recommendation_json or ""),
             "applied_in_dispatch": False,
-            "note": "Dispatch uses price quantiles computed inside SimulatePiece.",
+            "note": "Dispatch uses price quantiles computed inside SimulateMRKScenarioPiece.",
         }
     if trading_only is not None:
         base_trade = {
@@ -1722,7 +1722,7 @@ def run_analysis(
     return result
 
 
-class SimulatePiece(BasePiece):
+class SimulateMRKScenarioPiece(BasePiece):
     """Run MRK+PV+battery simulation and write mrk_savings_report.json."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -1733,7 +1733,7 @@ class SimulatePiece(BasePiece):
         log_path = out_dir / "simulate.log"
 
         def _log(msg: str) -> None:
-            text = f"[SimulatePiece] {msg}"
+            text = f"[SimulateMRKScenarioPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

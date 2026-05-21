@@ -11,7 +11,7 @@ class InputModel(BaseModel):
     catalog_manifest_json: str = Field(default="", description="Optional catalog sync manifest JSON")
     battery_strategy_recommendation_json: str = Field(
         default="",
-        description="Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+        description="Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
     )
 
 

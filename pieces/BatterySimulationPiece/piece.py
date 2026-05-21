@@ -16,10 +16,10 @@ def _load_simulate_module():
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulatePiece.piece")
+    return importlib.import_module("pieces.SimulateMRKScenarioPiece.piece")
 
 
-class BatterySimPiece(BasePiece):
+class BatterySimulationPiece(BasePiece):
     """Generate battery SOC profile using dispatch model."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -31,7 +31,7 @@ class BatterySimPiece(BasePiece):
         log_path = out_dir / "battery_sim.log"
 
         def _log(msg: str) -> None:
-            text = f"[BatterySimPiece] {msg}"
+            text = f"[BatterySimulationPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")
