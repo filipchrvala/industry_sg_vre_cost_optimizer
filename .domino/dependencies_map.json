@@ -5,18 +5,18 @@
             "requirements_file": "requirements_0.txt"
         },
         "pieces": [
-            "CatalogSyncPiece",
-            "SimulatePiece",
-            "SizingOptimizationPiece",
-            "CatalogRankerPiece",
-            "DashboardPiece",
             "KPIPiece",
-            "InvestmentEvalPiece",
-            "BatterySimPiece",
             "TechnicalLimitsPiece",
             "SolarSimPiece",
+            "DashboardPiece",
+            "BatterySimPiece",
+            "UserInputPiece",
+            "InvestmentEvalPiece",
+            "SizingOptimizationPiece",
+            "SimulatePiece",
             "BatteryStrategyOptimizerPiece",
-            "UserInputPiece"
+            "CatalogSyncPiece",
+            "CatalogRankerPiece"
         ],
         "secrets": [],
         "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.7-group0"
