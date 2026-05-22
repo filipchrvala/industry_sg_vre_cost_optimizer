@@ -10,7 +10,7 @@ from domino.base_piece import BasePiece
 from .models import InputModel, OutputModel
 
 
-class InvestmentEvaluationPiece(BasePiece):
+class InvestmentEvalPiece(BasePiece):
     """Investment metrics from report + KPI."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -21,7 +21,7 @@ class InvestmentEvaluationPiece(BasePiece):
         log_path = out_dir / "investment_eval.log"
 
         def _log(msg: str) -> None:
-            text = f"[InvestmentEvaluationPiece] {msg}"
+            text = f"[InvestmentEvalPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

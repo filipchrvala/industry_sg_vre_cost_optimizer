@@ -11,7 +11,7 @@ from domino.base_piece import BasePiece
 from .models import InputModel, OutputModel
 
 
-class DashboardDataPiece(BasePiece):
+class DashboardPiece(BasePiece):
     """Build finance-focused dashboard payload for CFO decisions."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -23,7 +23,7 @@ class DashboardDataPiece(BasePiece):
         log_path = out_dir / "dashboard.log"
 
         def _log(msg: str) -> None:
-            text = f"[DashboardDataPiece] {msg}"
+            text = f"[DashboardPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

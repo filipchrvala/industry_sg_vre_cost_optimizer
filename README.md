@@ -24,20 +24,20 @@
 | TechnicalLimitsPiece | Compute technical bounds for PV/BESS sizing search space. |
 | SizingOptimizationPiece | Run auto/manual sizing for PV and battery. |
 | CatalogRankerPiece | Rank hardware catalog options for selected scenario sizing. |
-| SolarSimulationPiece | Generate synthetic PV profile for selected sizing. |
-| BatteryStrategyPiece | Create battery dispatch strategy recommendation. |
-| BatterySimulationPiece | Generate battery SOC timeseries from load and PV profile. |
-| SimulateMRKScenarioPiece | Run MRK simulation (baseline/PV/battery) and savings report. |
-| ComputeKPIsPiece | Compute KPI summary from MRK report. |
-| InvestmentEvaluationPiece | Compute investment evaluation from simulated KPIs. |
-| DashboardDataPiece | Aggregate MRK report and KPI CSV into dashboard JSON. |
+| SolarSimPiece | Generate synthetic PV profile for selected sizing. |
+| BatteryStrategyOptimizerPiece | Create battery dispatch strategy recommendation. |
+| BatterySimPiece | Generate battery SOC timeseries from load and PV profile. |
+| SimulatePiece | Run MRK simulation (baseline/PV/battery) and savings report. |
+| KPIPiece | Compute KPI summary from MRK report. |
+| InvestmentEvalPiece | Compute investment evaluation from simulated KPIs. |
+| DashboardPiece | Aggregate MRK report and KPI CSV into dashboard JSON. |
 
 ## Main Outputs
 
-- `tests/SimulateMRKScenarioPiece_Outputs/mrk_savings_report.json`
-- `tests/ComputeKPIsPiece_Outputs/kpi_results.csv`
-- `tests/InvestmentEvaluationPiece_Outputs/investment_evaluation.csv`
-- `tests/DashboardDataPiece_Outputs/dashboard_data.json`
+- `tests/SimulatePiece_Outputs/mrk_savings_report.json`
+- `tests/KPIPiece_Outputs/kpi_results.csv`
+- `tests/InvestmentEvalPiece_Outputs/investment_evaluation.csv`
+- `tests/DashboardPiece_Outputs/dashboard_data.json`
 
 ## Test Dependencies
 

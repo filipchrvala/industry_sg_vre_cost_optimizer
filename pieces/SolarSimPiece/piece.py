@@ -16,10 +16,10 @@ def _load_simulate_module():
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulateMRKScenarioPiece.piece")
+    return importlib.import_module("pieces.SimulatePiece.piece")
 
 
-class SolarSimulationPiece(BasePiece):
+class SolarSimPiece(BasePiece):
     """Create virtual PV production CSV from selected scenario."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -30,7 +30,7 @@ class SolarSimulationPiece(BasePiece):
         log_path = out_dir / "solar_sim.log"
 
         def _log(msg: str) -> None:
-            text = f"[SolarSimulationPiece] {msg}"
+            text = f"[SolarSimPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

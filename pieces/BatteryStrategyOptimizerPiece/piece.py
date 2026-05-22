@@ -17,10 +17,10 @@ def _load_simulate_module():
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulateMRKScenarioPiece.piece")
+    return importlib.import_module("pieces.SimulatePiece.piece")
 
 
-class BatteryStrategyPiece(BasePiece):
+class BatteryStrategyOptimizerPiece(BasePiece):
     """Build simple price-driven strategy thresholds for battery operation."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
@@ -31,7 +31,7 @@ class BatteryStrategyPiece(BasePiece):
         log_path = out_dir / "battery_strategy_optimizer.log"
 
         def _log(msg: str) -> None:
-            text = f"[BatteryStrategyPiece] {msg}"
+            text = f"[BatteryStrategyOptimizerPiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")
@@ -52,20 +52,15 @@ class BatteryStrategyPiece(BasePiece):
                 "charge_below_eur_per_kwh": round(float(np.quantile(price, 0.30)), 6),
                 "discharge_above_eur_per_kwh": round(float(np.quantile(price, 0.75)), 6),
                 "expensive_hour_threshold_eur_per_kwh": round(float(np.percentile(price, 70.0)), 6),
-                "strategy_note": "Thresholds aligned to dispatch logic in SimulateMRKScenarioPiece.",
+                "strategy_note": "Thresholds aligned to dispatch logic in SimulatePiece.",
             }
             _log(f"Computed thresholds from rows={len(df)}")
         except Exception as exc:
-            (out_dir / "battery_strategy_optimizer_error.txt").write_text(
-                traceback.format_exc(), encoding="utf-8"
-            )
+            (out_dir / "battery_strategy_optimizer_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             _log(f"ERROR during strategy optimization: {exc}")
             raise
 
         out_json = out_dir / "battery_strategy_recommendation.json"
         out_json.write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
         _log(f"Wrote output: {out_json}")
-        return OutputModel(
-            message="Battery strategy optimized",
-            battery_strategy_recommendation_json=str(out_json),
-        )
+        return OutputModel(message="Battery strategy optimized", battery_strategy_recommendation_json=str(out_json))
