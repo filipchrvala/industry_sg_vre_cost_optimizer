@@ -1726,19 +1726,58 @@ def run_analysis(
 class SimulatePiece(BasePiece):
     """Run MRK+PV+battery simulation and write mrk_savings_report.json."""
 
+    _ARTIFACT_NAMES = (
+        "mrk_savings_report.json",
+        "summary.csv",
+        "simulated_results.csv",
+        "simulate.log",
+        "simulate_started.txt",
+        "simulate_error.txt",
+        "baseline_vs_optimized_profile.csv",
+    )
+
+    @staticmethod
+    def _copy_if_different(src: Path, dst: Path) -> None:
+        if not src.is_file():
+            return
+        try:
+            if src.resolve() == dst.resolve():
+                return
+        except OSError:
+            pass
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    def _resolve_dirs(self, output_dir: str) -> tuple[Path, Path | None]:
+        """Primary = Domino results_path (downstream KPI/Dashboard). Mirror = optional output_dir."""
+        extra = (output_dir or "").strip()
+        if self.results_path:
+            primary = Path(self.results_path)
+        elif extra:
+            primary = Path(extra)
+        else:
+            primary = Path("/tmp/simulate_piece_results")
+        primary.mkdir(parents=True, exist_ok=True)
+
+        mirror: Path | None = None
+        if extra and self.results_path:
+            candidate = Path(extra)
+            try:
+                if candidate.resolve() != primary.resolve():
+                    mirror = candidate
+            except OSError:
+                mirror = candidate
+        return primary, mirror
+
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
-        if self.results_path:
-            out_dir = Path(self.results_path)
-        elif input_data.output_dir:
-            out_dir = Path(input_data.output_dir)
-        else:
-            out_dir = Path("/tmp/simulate_piece_results")
-        out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, mirror_dir = self._resolve_dirs(input_data.output_dir)
         log_path = out_dir / "simulate.log"
         (out_dir / "simulate_started.txt").write_text(
-            f"load_csv={csv_path}\nscenario_yaml={scenario_path}\nresults_path={self.results_path}\noutput_dir={input_data.output_dir}\n",
+            f"load_csv={csv_path}\nscenario_yaml={scenario_path}\n"
+            f"results_path={self.results_path}\nprimary_out_dir={out_dir}\n"
+            f"mirror_output_dir={mirror_dir}\n",
             encoding="utf-8",
         )
 
@@ -1750,7 +1789,11 @@ class SimulatePiece(BasePiece):
 
         _log(f"Input load_csv={csv_path}")
         _log(f"Input scenario_yaml={scenario_path}")
-        _log(f"Input output_dir={input_data.output_dir}")
+        _log(f"Primary out_dir={out_dir} (Domino results_path for KPI/Dashboard)")
+        if mirror_dir:
+            _log(f"Mirror copy to output_dir={mirror_dir}")
+        elif (input_data.output_dir or "").strip():
+            _log(f"output_dir={input_data.output_dir.strip()} (same as primary, no extra copy)")
         strategy_raw = (input_data.battery_strategy_recommendation_json or "").strip()
         if strategy_raw and not Path(strategy_raw).is_file():
             _log(
@@ -1852,45 +1895,18 @@ class SimulatePiece(BasePiece):
         summary.to_csv(out_dir / "summary.csv", index=False)
         simulated.to_csv(out_dir / "simulated_results.csv", index=False)
 
-        deliver_dir = out_dir
-        if self.results_path:
-            deliver_dir = Path(self.results_path)
-            deliver_dir.mkdir(parents=True, exist_ok=True)
+        report_path = out_dir / "mrk_savings_report.json"
+        if mirror_dir:
+            mirror_dir.mkdir(parents=True, exist_ok=True)
+            for name in self._ARTIFACT_NAMES:
+                self._copy_if_different(out_dir / name, mirror_dir / name)
+            rep = json.loads(report_path.read_text(encoding="utf-8"))
+            rep.setdefault("artifacts_mirror", {})["shared_output_dir"] = str(mirror_dir)
+            report_path.write_text(json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8")
+            self._copy_if_different(report_path, mirror_dir / "mrk_savings_report.json")
 
-            def _copy_if_different(src: Path, dst: Path) -> None:
-                if not src.is_file():
-                    return
-                try:
-                    if src.resolve() == dst.resolve():
-                        return
-                except OSError:
-                    pass
-                shutil.copy2(src, dst)
-
-            for name in (
-                "mrk_savings_report.json",
-                "summary.csv",
-                "simulated_results.csv",
-                "simulate.log",
-                "simulate_started.txt",
-                "baseline_vs_optimized_profile.csv",
-            ):
-                _copy_if_different(out_dir / name, deliver_dir / name)
-            rep = json.loads((deliver_dir / "mrk_savings_report.json").read_text(encoding="utf-8"))
-            art = rep.get("artifacts") or {}
-            for key in ("baseline_vs_optimized_profile_csv", "simulated_results_csv", "summary_csv"):
-                p = art.get(key)
-                if p:
-                    src = Path(p)
-                    if src.is_file():
-                        dst = deliver_dir / src.name
-                        _copy_if_different(src, dst)
-                        art[key] = str(dst)
-            rep["artifacts"] = art
-            (deliver_dir / "mrk_savings_report.json").write_text(
-                json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            report_path = deliver_dir / "mrk_savings_report.json"
-
-        _log(f"Wrote outputs: {report_path}, {deliver_dir / 'summary.csv'}, {deliver_dir / 'simulated_results.csv'}")
+        _log(
+            f"Wrote outputs: {report_path} (returned to upstream); "
+            f"summary={out_dir / 'summary.csv'}"
+        )
         return OutputModel(message="Simulation finished", report_json=str(report_path))

@@ -146,12 +146,13 @@ def main() -> None:
         ),
     }
     sim_wpd_inputs = wpd.setdefault(SIM_ID, {}).setdefault("inputs", {})
+    # Prázdne = všetko do results_path uzla (KPI/Dashboard). Voliteľne doplniť mirror na shared storage.
     sim_wpd_inputs["output_dir"] = {
         "fromUpstream": False,
         "upstreamId": "",
         "upstreamArgument": "",
         "upstreamValue": "",
-        "value": "/home/shared_storage/mrk_outputs",
+        "value": "",
     }
     for arg, (src_id, pname, up_arg, label) in sim_inputs.items():
         suffix = src_id.split("_", 1)[1][:8]
