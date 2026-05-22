@@ -205,6 +205,16 @@
         },
         "description": "Aggregate MRK report and KPI CSV into dashboard JSON",
         "dependencies_group": "0",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 512
+            }
+        },
         "input_schema": {
             "properties": {
                 "report_json": {
