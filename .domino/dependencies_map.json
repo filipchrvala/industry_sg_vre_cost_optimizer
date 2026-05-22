@@ -1,4 +1,4 @@
-﻿{
+{
     "group0": {
         "dependency": {
             "dockerfile": null,
@@ -19,10 +19,6 @@
             "CatalogRankerPiece"
         ],
         "secrets": [],
-<<<<<<< HEAD
-        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.23-group0"
-=======
         "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.24-group0"
->>>>>>> 935cb2c (Revert piece rename: restore BatterySimPiece and pre-Domino names (v0.1.24).)
     }
 }

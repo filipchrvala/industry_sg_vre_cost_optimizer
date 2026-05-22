@@ -598,7 +598,7 @@
                 },
                 "battery_strategy_recommendation_json": {
                     "default": "",
-                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
                     "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 }
