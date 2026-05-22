@@ -596,7 +596,7 @@
                 },
                 "output_dir": {
                     "default": "",
-                    "description": "Optional extra output dir (copy also written to piece results)",
+                    "description": "Optional mirror directory (e.g. shared storage). Primary outputs always go to Domino results_path.",
                     "title": "Output Dir",
                     "type": "string"
                 },
