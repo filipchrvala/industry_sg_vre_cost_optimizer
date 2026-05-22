@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import math
+import shutil
 from pathlib import Path
 from typing import Any
 import uuid
@@ -1750,7 +1751,14 @@ class SimulatePiece(BasePiece):
         _log(f"Input load_csv={csv_path}")
         _log(f"Input scenario_yaml={scenario_path}")
         _log(f"Input output_dir={input_data.output_dir}")
-        _log(f"Input battery_strategy_recommendation_json={input_data.battery_strategy_recommendation_json}")
+        strategy_raw = (input_data.battery_strategy_recommendation_json or "").strip()
+        if strategy_raw and not Path(strategy_raw).is_file():
+            _log(
+                f"WARN battery_strategy_recommendation_json not found ({strategy_raw}); "
+                "using auto price thresholds"
+            )
+            strategy_raw = ""
+        _log(f"Input battery_strategy_recommendation_json={strategy_raw or '(empty)'}")
         if not csv_path.is_file():
             raise FileNotFoundError(f"Load CSV not found: {csv_path}")
         if not scenario_path.is_file():
@@ -1763,7 +1771,7 @@ class SimulatePiece(BasePiece):
                 output_dir=out_dir,
                 battery_catalog_json=input_data.battery_catalog_json,
                 inverter_catalog_json=input_data.inverter_catalog_json,
-                battery_strategy_recommendation_json=input_data.battery_strategy_recommendation_json,
+                battery_strategy_recommendation_json=strategy_raw,
             )
         except Exception as exc:
             (out_dir / "simulate_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
@@ -1843,5 +1851,46 @@ class SimulatePiece(BasePiece):
         simulated = pd.DataFrame(sim_rows)
         summary.to_csv(out_dir / "summary.csv", index=False)
         simulated.to_csv(out_dir / "simulated_results.csv", index=False)
-        _log(f"Wrote outputs: {report_path}, {out_dir / 'summary.csv'}, {out_dir / 'simulated_results.csv'}")
+
+        deliver_dir = out_dir
+        if self.results_path:
+            deliver_dir = Path(self.results_path)
+            deliver_dir.mkdir(parents=True, exist_ok=True)
+
+            def _copy_if_different(src: Path, dst: Path) -> None:
+                if not src.is_file():
+                    return
+                try:
+                    if src.resolve() == dst.resolve():
+                        return
+                except OSError:
+                    pass
+                shutil.copy2(src, dst)
+
+            for name in (
+                "mrk_savings_report.json",
+                "summary.csv",
+                "simulated_results.csv",
+                "simulate.log",
+                "simulate_started.txt",
+                "baseline_vs_optimized_profile.csv",
+            ):
+                _copy_if_different(out_dir / name, deliver_dir / name)
+            rep = json.loads((deliver_dir / "mrk_savings_report.json").read_text(encoding="utf-8"))
+            art = rep.get("artifacts") or {}
+            for key in ("baseline_vs_optimized_profile_csv", "simulated_results_csv", "summary_csv"):
+                p = art.get(key)
+                if p:
+                    src = Path(p)
+                    if src.is_file():
+                        dst = deliver_dir / src.name
+                        _copy_if_different(src, dst)
+                        art[key] = str(dst)
+            rep["artifacts"] = art
+            (deliver_dir / "mrk_savings_report.json").write_text(
+                json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            report_path = deliver_dir / "mrk_savings_report.json"
+
+        _log(f"Wrote outputs: {report_path}, {deliver_dir / 'summary.csv'}, {deliver_dir / 'simulated_results.csv'}")
         return OutputModel(message="Simulation finished", report_json=str(report_path))

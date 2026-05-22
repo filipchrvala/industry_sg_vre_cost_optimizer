@@ -1,4 +1,9 @@
-"""Update Test.customization to match renamed Domino pieces."""
+"""DO NOT use for Domino import — renames pieces away from published names.
+
+Published registry uses SimulatePiece, BatterySimPiece, KPIPiece, …
+Run scripts/revert_test_customization_names.py instead.
+
+Update Test.customization to match renamed Domino pieces (pitonak_mrk only)."""
 from __future__ import annotations
 
 import json

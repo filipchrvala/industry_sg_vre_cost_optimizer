@@ -578,9 +578,15 @@
                     "title": "Scenario Yaml",
                     "type": "string"
                 },
+                "battery_strategy_recommendation_json": {
+                    "default": "",
+                    "description": "battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece (optional)",
+                    "title": "Battery Strategy Recommendation Json",
+                    "type": "string"
+                },
                 "output_dir": {
                     "default": "",
-                    "description": "Optional output dir when results_path is not set",
+                    "description": "Optional extra output dir (copy also written to piece results)",
                     "title": "Output Dir",
                     "type": "string"
                 },
@@ -606,12 +612,6 @@
                     "default": "",
                     "description": "Optional catalog sync manifest JSON",
                     "title": "Catalog Manifest Json",
-                    "type": "string"
-                },
-                "battery_strategy_recommendation_json": {
-                    "default": "",
-                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyPiece",
-                    "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 }
             },
