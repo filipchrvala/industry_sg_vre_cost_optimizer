@@ -19,7 +19,7 @@ from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
 
-# --- battery strategy (voliteľné prahy z BatteryStrategyPiece) ---
+# --- battery strategy (voliteľné prahy z BatteryStrategyOptimizerPiece) ---
 
 
 def load_battery_strategy_thresholds(path: Path | str | None) -> dict[str, float] | None:
@@ -1677,7 +1677,7 @@ def run_analysis(
         result["battery_strategy"] = {
             "source_json": str(battery_strategy_recommendation_json or ""),
             "applied_in_dispatch": False,
-            "note": "Dispatch uses price quantiles computed inside SimulateMRKScenarioPiece.",
+            "note": "Dispatch uses price quantiles computed inside SimulatePiece.",
         }
     if trading_only is not None:
         base_trade = {
@@ -1722,18 +1722,27 @@ def run_analysis(
     return result
 
 
-class SimulateMRKScenarioPiece(BasePiece):
+class SimulatePiece(BasePiece):
     """Run MRK+PV+battery simulation and write mrk_savings_report.json."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
-        out_dir = Path(self.results_path) if self.results_path else Path(input_data.output_dir or ".")
+        if self.results_path:
+            out_dir = Path(self.results_path)
+        elif input_data.output_dir:
+            out_dir = Path(input_data.output_dir)
+        else:
+            out_dir = Path("/tmp/simulate_piece_results")
         out_dir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / "simulate.log"
+        (out_dir / "simulate_started.txt").write_text(
+            f"load_csv={csv_path}\nscenario_yaml={scenario_path}\nresults_path={self.results_path}\noutput_dir={input_data.output_dir}\n",
+            encoding="utf-8",
+        )
 
         def _log(msg: str) -> None:
-            text = f"[SimulateMRKScenarioPiece] {msg}"
+            text = f"[SimulatePiece] {msg}"
             print(text, flush=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(text + "\n")

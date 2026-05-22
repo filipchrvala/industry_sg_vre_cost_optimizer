@@ -34,6 +34,11 @@ TEXT_REPLACEMENTS = [
 ]
 
 # Domino upstreamId prefixes (truncated UI ids).
+HIGH_MEMORY_PIECES_MB = {
+    "SimulatePiece": 1024,
+    "BatterySimPiece": 512,
+}
+
 UPSTREAM_ID_REPLACEMENTS = [
     ("BatteryStrategyOptimizer", "BatteryStrategy"),
     ("SolarSimPi_", "SolarSimulationPi_"),
