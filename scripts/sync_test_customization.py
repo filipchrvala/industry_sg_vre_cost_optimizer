@@ -208,12 +208,16 @@ def main() -> None:
     edges = data.get("workflowEdges", [])
     cleaned = []
     seen_pairs: set[tuple[str, str]] = set()
+    valid_sim_sources = {src for src, tgt in required_edges if tgt == SIM_ID}
     for e in edges:
         pair = (e.get("source", ""), e.get("target", ""))
         if pair in seen_pairs:
             continue
         # drop strategy -> battery sim (not used by BatterySimPiece)
         if e.get("source") == STRAT_ID and e.get("target") == "108_193e02b8-a3d7-4ad9-aa99-10e76b77eddf":
+            continue
+        # Keep Simulate incoming edges only for sources that are actually mapped to Simulate inputs.
+        if e.get("target") == SIM_ID and e.get("source") not in valid_sim_sources:
             continue
         seen_pairs.add(pair)
         cleaned.append(e)
