@@ -9,10 +9,6 @@ class InputModel(BaseModel):
         title="Battery Strategy Recommendation Json",
         description="battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece (optional)",
     )
-    output_dir: str = Field(
-        default="",
-        description="Optional mirror directory (e.g. shared storage). Primary outputs always go to Domino results_path.",
-    )
     ranked_catalog_json: str = Field(default="", description="Optional ranked catalog recommendation JSON")
     inverter_catalog_json: str = Field(default="", description="Optional inverter catalog JSON")
     battery_catalog_json: str = Field(default="", description="Optional battery catalog JSON")

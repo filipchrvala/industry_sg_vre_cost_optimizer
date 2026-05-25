@@ -594,12 +594,6 @@
                     "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 },
-                "output_dir": {
-                    "default": "",
-                    "description": "Optional mirror directory (e.g. shared storage). Primary outputs always go to Domino results_path.",
-                    "title": "Output Dir",
-                    "type": "string"
-                },
                 "ranked_catalog_json": {
                     "default": "",
                     "description": "Optional ranked catalog recommendation JSON",

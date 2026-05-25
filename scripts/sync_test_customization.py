@@ -107,6 +107,10 @@ def main() -> None:
         entry["description"] = meta.get("description", entry.get("description", ""))
         if meta.get("input_schema"):
             entry["input_schema"] = meta["input_schema"]
+            props = entry["input_schema"].get("properties", {})
+            props.pop("output_dir", None)
+            req = entry["input_schema"].get("required", [])
+            entry["input_schema"]["required"] = [name for name in req if name != "output_dir"]
         if meta.get("output_schema"):
             entry["output_schema"] = meta["output_schema"]
         entry["container_resources"] = _container_resources(piece_name)
@@ -146,14 +150,6 @@ def main() -> None:
         ),
     }
     sim_wpd_inputs = wpd.setdefault(SIM_ID, {}).setdefault("inputs", {})
-    # Prázdne = všetko do results_path uzla (KPI/Dashboard). Voliteľne doplniť mirror na shared storage.
-    sim_wpd_inputs["output_dir"] = {
-        "fromUpstream": False,
-        "upstreamId": "",
-        "upstreamArgument": "",
-        "upstreamValue": "",
-        "value": "",
-    }
     for arg, (src_id, pname, up_arg, label) in sim_inputs.items():
         suffix = src_id.split("_", 1)[1][:8]
         sim_wpd_inputs[arg] = {
@@ -163,6 +159,7 @@ def main() -> None:
             "upstreamValue": f"{_short_label(pname, suffix)} - {label}",
             "value": "",
         }
+    sim_wpd_inputs.pop("output_dir", None)
 
     # --- Dashboard inputs ---
     dash_inputs = {
