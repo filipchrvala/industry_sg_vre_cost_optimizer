@@ -1438,14 +1438,83 @@ def _write_report(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _load_aligned_frame(path: Path | str, df: pd.DataFrame, required_cols: list[str]) -> pd.DataFrame:
+    p = Path(path)
+    if not p.is_file():
+        raise FileNotFoundError(str(p))
+    raw = pd.read_csv(p)
+    missing = [c for c in required_cols if c not in raw.columns]
+    if missing:
+        raise ValueError(f"{p.name} missing required columns: {missing}")
+    if "datetime" in raw.columns:
+        raw = raw.copy()
+        raw["datetime"] = pd.to_datetime(raw["datetime"], errors="coerce")
+        exp = pd.DataFrame({"datetime": pd.to_datetime(df["datetime"])})
+        merged = exp.merge(raw, on="datetime", how="left", sort=False)
+        if merged[required_cols].isna().any().any():
+            raise ValueError(f"{p.name} does not align cleanly with load_csv timestamps")
+        return merged
+    if len(raw) != len(df):
+        raise ValueError(f"{p.name} rows ({len(raw)}) must match load_csv rows ({len(df)})")
+    raw = raw.copy()
+    raw.insert(0, "datetime", pd.to_datetime(df["datetime"]))
+    return raw
+
+
+def _scenario_from_precomputed(
+    *,
+    name: str,
+    ts: pd.Series,
+    price: pd.Series,
+    dt_h: float,
+    grid_kw: np.ndarray,
+    export_kw: np.ndarray,
+    ann_capex: float,
+    mrk_contract_kw: float,
+    fee_eur_per_kw_month: float,
+    excess_penalty_eur_per_kw: float,
+    feed_in_eur_per_kwh: float,
+    cycles: float = 0.0,
+    trading_only: bool = False,
+) -> dict[str, Any]:
+    grid = pd.Series(np.asarray(grid_kw, dtype=float))
+    export = pd.Series(np.asarray(export_kw, dtype=float))
+    e_cost = energy_cost_eur(grid, price, dt_h)
+    rev = feed_in_revenue_eur(export, feed_in_eur_per_kwh, dt_h)
+    if trading_only:
+        mrk_cost, mrk_detail = 0.0, {}
+    else:
+        mrk_cost, mrk_detail = mrk_component_monthly(
+            grid,
+            ts,
+            contract_kw=mrk_contract_kw,
+            fee_eur_per_kw_month=fee_eur_per_kw_month,
+            excess_penalty_eur_per_kw=excess_penalty_eur_per_kw,
+        )
+    total_op = e_cost + mrk_cost - rev
+    return {
+        "label": name,
+        "energy_cost_eur": round(e_cost, 2),
+        "mrk_cost_period_eur": round(mrk_cost, 2),
+        "feed_in_revenue_eur": round(rev, 2),
+        "total_operating_eur": round(total_op, 2),
+        "annual_capex_charge_eur": round(ann_capex, 2),
+        "total_with_capex_eur": round(total_op + ann_capex, 2),
+        "equivalent_full_cycles": round(float(cycles), 2),
+        "monthly_peak_detail": mrk_detail,
+    }
+
+
 def run_analysis(
     csv_path: Path | str,
     scenario_path: Path | str,
     *,
     output_dir: Path | str | None = None,
+    virtual_solar_csv: str,
+    battery_dispatch_csv: str,
+    battery_summary_csv: str,
     battery_catalog_json: str = "",
     inverter_catalog_json: str = "",
-    battery_strategy_recommendation_json: str = "",
 ) -> dict[str, Any]:
     csv_path = Path(csv_path)
     scenario_path = Path(scenario_path)
@@ -1466,28 +1535,194 @@ def run_analysis(
     eq = cfg.get("equipment") or {}
     selection_mode = str(eq.get("selection_mode", "manual")).lower()
     auto_log: dict[str, Any] | None = None
-    if selection_mode == "auto":
-        cfg, auto_log = _auto_optimize_sizes(cfg, df)
 
-    strategy_thresholds = load_battery_strategy_thresholds(battery_strategy_recommendation_json)
-    bundle = _sim_bundle(cfg, df, battery_strategy_thresholds=strategy_thresholds)
-    baseline = bundle["baseline"]
-    pv_only = bundle["pv_only"]
-    bat_only = bundle["battery_only"]
-    both = bundle["pv_and_battery"]
-    trading_only = bundle.get("battery_trading_only")
-    optimized = primary_optimized_scenario(bundle)
-    econ_global = bundle["econ_global"]
+    pv_cfg = cfg.get("pv") or {}
+    bat_cfg = cfg.get("battery") or {}
     mrk_cfg = cfg.get("mrk") or {}
+    an_cfg = cfg.get("analysis") or {}
+    en_cfg = cfg.get("energy") or {}
+
+    use_pv = bool(cfg.get("use_pv", True))
+    use_bat = bool(cfg.get("use_battery", True))
+    installed_kwp = float(pv_cfg.get("installed_kwp", 0.0))
+    yield_kwp = float(pv_cfg.get("yield_kwh_per_kwp_year", 1000.0))
+    e_kwh = float(bat_cfg.get("energy_kwh", 0.0))
+    eta_c = float(bat_cfg.get("charge_efficiency", 0.95))
+    years = int(an_cfg.get("amortization_years", 12))
+    dr = float(an_cfg.get("discount_rate", 0.08))
+    feed_in = float(en_cfg.get("feed_in_surplus_eur_per_kwh", 0.05))
     mrk_kw = float(mrk_cfg.get("contract_kw", 0.0))
     fee_m = float(mrk_cfg.get("fee_eur_per_kw_month", 0.0))
-    years = int(bundle["years"])
-    dr = float(bundle["discount_rate"])
+    pen = float(mrk_cfg.get("excess_peak_penalty_eur_per_kw", 0.0))
 
-    pv_capex = float(bundle["pv_capex"])
-    bat_capex = float(bundle["battery_capex"])
-    days_in_sample = float(bundle["days_in_sample"])
+    pv_capex = installed_kwp * float(pv_cfg.get("specific_capex_eur_per_kwp", 800.0)) if use_pv else 0.0
+    bat_capex = e_kwh * float(bat_cfg.get("specific_capex_eur_per_kwh", 400.0)) if use_bat else 0.0
+    econ_global = compute_levelized_economics(
+        pv_cfg,
+        bat_cfg,
+        an_cfg,
+        en_cfg,
+        installed_kwp=installed_kwp,
+        yield_kwp=yield_kwp,
+        energy_kwh=e_kwh,
+        pv_capex=pv_capex,
+        bat_capex=bat_capex,
+        eta_c=eta_c,
+        eta_d=float(bat_cfg.get("discharge_efficiency", 0.95)),
+        years=years,
+        dr=dr,
+        use_pv=use_pv,
+        use_bat=use_bat,
+    )
 
+    solar_frame = _load_aligned_frame(virtual_solar_csv, df, ["pv_kw"])
+    pv_kw = pd.to_numeric(solar_frame["pv_kw"], errors="coerce").fillna(0.0).clip(lower=0.0).to_numpy()
+
+    dispatch_required = [
+        "battery_only_grid_kw",
+        "battery_only_export_kw",
+        "battery_only_soc_pct",
+        "pv_battery_grid_kw",
+        "pv_battery_export_kw",
+        "pv_battery_soc_pct",
+    ]
+    dispatch_frame = _load_aligned_frame(battery_dispatch_csv, df, dispatch_required)
+    summary_frame = pd.read_csv(Path(battery_summary_csv))
+    summary_row = (summary_frame.to_dict(orient="records") or [{}])[0]
+
+    baseline_grid = load.astype(float)
+    pv_only_grid = np.maximum(load - pv_kw, 0.0)
+    pv_only_export = np.maximum(pv_kw - load, 0.0)
+
+    battery_only_grid = pd.to_numeric(dispatch_frame["battery_only_grid_kw"], errors="coerce").fillna(0.0).to_numpy()
+    battery_only_export = pd.to_numeric(dispatch_frame["battery_only_export_kw"], errors="coerce").fillna(0.0).to_numpy()
+    battery_only_soc = pd.to_numeric(dispatch_frame["battery_only_soc_pct"], errors="coerce").fillna(0.0).to_numpy()
+    pv_battery_grid = pd.to_numeric(dispatch_frame["pv_battery_grid_kw"], errors="coerce").fillna(0.0).to_numpy()
+    pv_battery_export = pd.to_numeric(dispatch_frame["pv_battery_export_kw"], errors="coerce").fillna(0.0).to_numpy()
+    pv_battery_soc = pd.to_numeric(dispatch_frame["pv_battery_soc_pct"], errors="coerce").fillna(0.0).to_numpy()
+    trading_grid = pd.to_numeric(dispatch_frame.get("trading_only_grid_kw", 0.0), errors="coerce").fillna(0.0).to_numpy()
+    trading_export = pd.to_numeric(dispatch_frame.get("trading_only_export_kw", 0.0), errors="coerce").fillna(0.0).to_numpy()
+
+    baseline = _scenario_from_precomputed(
+        name="baseline_no_storage",
+        ts=df["datetime"],
+        price=price,
+        dt_h=dt_h,
+        grid_kw=baseline_grid,
+        export_kw=np.zeros(n),
+        ann_capex=0.0,
+        mrk_contract_kw=mrk_kw,
+        fee_eur_per_kw_month=fee_m,
+        excess_penalty_eur_per_kw=pen,
+        feed_in_eur_per_kwh=feed_in,
+        cycles=0.0,
+    )
+    pv_only = (
+        _scenario_from_precomputed(
+            name="pv_only",
+            ts=df["datetime"],
+            price=price,
+            dt_h=dt_h,
+            grid_kw=pv_only_grid,
+            export_kw=pv_only_export,
+            ann_capex=annual_capex_charge_eur(pv_capex, 0.0, years, dr),
+            mrk_contract_kw=mrk_kw,
+            fee_eur_per_kw_month=fee_m,
+            excess_penalty_eur_per_kw=pen,
+            feed_in_eur_per_kwh=feed_in,
+            cycles=0.0,
+        )
+        if use_pv
+        else None
+    )
+    battery_only = (
+        _scenario_from_precomputed(
+            name="battery_only",
+            ts=df["datetime"],
+            price=price,
+            dt_h=dt_h,
+            grid_kw=battery_only_grid,
+            export_kw=battery_only_export,
+            ann_capex=annual_capex_charge_eur(0.0, bat_capex, years, dr),
+            mrk_contract_kw=mrk_kw,
+            fee_eur_per_kw_month=fee_m,
+            excess_penalty_eur_per_kw=pen,
+            feed_in_eur_per_kwh=feed_in,
+            cycles=equivalent_full_cycles(pd.Series(battery_only_soc)),
+        )
+        if use_bat
+        else None
+    )
+    pv_and_battery = (
+        _scenario_from_precomputed(
+            name="pv_and_battery",
+            ts=df["datetime"],
+            price=price,
+            dt_h=dt_h,
+            grid_kw=pv_battery_grid,
+            export_kw=pv_battery_export,
+            ann_capex=annual_capex_charge_eur(pv_capex, bat_capex, years, dr),
+            mrk_contract_kw=mrk_kw,
+            fee_eur_per_kw_month=fee_m,
+            excess_penalty_eur_per_kw=pen,
+            feed_in_eur_per_kwh=feed_in,
+            cycles=equivalent_full_cycles(pd.Series(pv_battery_soc)),
+        )
+        if (use_pv and use_bat)
+        else None
+    )
+    enable_trading = bool(an_cfg.get("enable_trading_only_scenario", True)) and use_bat
+    trading_cycles = float(summary_row.get("trading_only_cycles_equivalent", 0.0) or 0.0)
+    trading_only = (
+        _scenario_from_precomputed(
+            name="battery_trading_only",
+            ts=df["datetime"],
+            price=price,
+            dt_h=dt_h,
+            grid_kw=trading_grid,
+            export_kw=trading_export,
+            ann_capex=annual_capex_charge_eur(0.0, bat_capex, years, dr),
+            mrk_contract_kw=mrk_kw,
+            fee_eur_per_kw_month=fee_m,
+            excess_penalty_eur_per_kw=pen,
+            feed_in_eur_per_kwh=feed_in,
+            cycles=trading_cycles,
+            trading_only=True,
+        )
+        if enable_trading
+        else None
+    )
+
+    days_in_sample = float(n) * dt_h / 24.0
+    profiles_kw = {
+        "baseline_no_storage": baseline_grid,
+        "pv_only": pv_only_grid,
+        "battery_only": battery_only_grid,
+        "pv_and_battery": pv_battery_grid,
+    }
+    if trading_only is not None:
+        profiles_kw["battery_trading_only"] = trading_grid
+
+    bundle = {
+        "baseline": baseline,
+        "pv_only": pv_only,
+        "battery_only": battery_only,
+        "pv_and_battery": pv_and_battery,
+        "battery_trading_only": trading_only,
+        "econ_global": econ_global,
+        "pv_capex": pv_capex,
+        "battery_capex": bat_capex,
+        "use_pv": use_pv,
+        "use_bat": use_bat,
+        "days_in_sample": days_in_sample,
+        "years": years,
+        "discount_rate": dr,
+        "profiles_kw": profiles_kw,
+        "installed_kwp": installed_kwp,
+        "energy_kwh": e_kwh,
+    }
+
+    optimized = primary_optimized_scenario(bundle)
     price_quality = analyze_price_input_quality(df, price, load)
     safety_rv = float(mrk_cfg.get("rv_downsizing_safety_margin_pct", 8.0))
     mrk_rv_block: dict[str, Any] | None = None
@@ -1521,6 +1756,7 @@ def run_analysis(
         c_rate_vals = [float(x) for x in c_rates if float(x) > 0]
         if c_rate_vals:
             c_rate_sweep = run_c_rate_sweep(cfg, df, c_rate_vals)
+
     optimized_label = str((optimized or {}).get("label") or "")
     prof = bundle.get("profiles_kw") or {}
     base_profile = prof.get("baseline_no_storage")
@@ -1575,6 +1811,11 @@ def run_analysis(
             "battery_products_online": battery_catalog_json or "",
             "inverters_online": inverter_catalog_json or "",
         },
+        "upstream_sources": {
+            "virtual_solar_csv": str(virtual_solar_csv),
+            "battery_dispatch_csv": str(battery_dispatch_csv),
+            "battery_summary_csv": str(battery_summary_csv),
+        },
     }
 
     def savings(alt: dict | None, base: dict) -> dict | None:
@@ -1604,6 +1845,8 @@ def run_analysis(
                     + str(scenario_path)
                     + str(n)
                     + str(round(dt_h, 6))
+                    + str(virtual_solar_csv)
+                    + str(battery_dispatch_csv)
                 ).encode("utf-8")
             ).hexdigest(),
         },
@@ -1620,25 +1863,20 @@ def run_analysis(
                 float(econ_global["opportunity_pv_to_battery_eur_per_kwh_stored"]), 6
             ),
             "round_trip_efficiency": round(float(econ_global["round_trip_efficiency"]), 4),
-            "dispatch_note": (
-                "Nabíjanie z prebytku FVE: nákladová báza max(feed-in, LCOE)/η_charge. "
-                "Sieť: len lacný kvantil + arbitráž vs. drahý kvantil a MRK rezerva. "
-                "Vybíjanie: MRK špička alebo cena > priemerná hodnota v batérii/η_dis + marginálny cyklus. "
-                "SOC rezerva pre peak shaving je aktívna len ak je ekonomicky výhodná oproti jej nákladovej báze."
-            ),
+            "dispatch_note": "Battery dispatch is consumed from upstream BatterySimPiece; SimulatePiece aggregates only.",
         },
         "scenarios": {
             "baseline": baseline,
             "pv_only": pv_only,
-            "battery_only": bat_only,
-            "pv_and_battery": both,
+            "battery_only": battery_only,
+            "pv_and_battery": pv_and_battery,
             "battery_trading_only": trading_only,
             "optimized": optimized,
         },
         "savings_vs_baseline": {
             "pv_only": savings(pv_only, baseline),
-            "battery_only": savings(bat_only, baseline),
-            "pv_and_battery": savings(both, baseline),
+            "battery_only": savings(battery_only, baseline),
+            "pv_and_battery": savings(pv_and_battery, baseline),
             "optimized": savings(optimized, baseline),
         },
         "capex_inputs": {
@@ -1661,24 +1899,23 @@ def run_analysis(
         "artifacts": {
             "baseline_vs_optimized_profile_csv": str(profile_csv_path),
             "optimized_scenario_label": optimized_label,
+            "virtual_solar_csv": str(virtual_solar_csv),
+            "battery_dispatch_csv": str(battery_dispatch_csv),
+            "battery_summary_csv": str(battery_summary_csv),
         },
     }
-    if strategy_thresholds:
-        result["battery_strategy"] = {
-            "source_json": str(battery_strategy_recommendation_json),
-            "thresholds_eur_per_kwh": {
-                "charge_below": strategy_thresholds.get("price_low"),
-                "discharge_above": strategy_thresholds.get("price_high"),
-                "expensive_hour": strategy_thresholds.get("price_expensive"),
-            },
-            "applied_in_dispatch": True,
-        }
-    else:
-        result["battery_strategy"] = {
-            "source_json": str(battery_strategy_recommendation_json or ""),
-            "applied_in_dispatch": False,
-            "note": "Dispatch uses price quantiles computed inside SimulatePiece.",
-        }
+    result["battery_strategy"] = {
+        "source_json": str(summary_row.get("strategy_source_json", "") or ""),
+        "thresholds_eur_per_kwh": {
+            "charge_below": summary_row.get("strategy_charge_below_eur_per_kwh"),
+            "discharge_above": summary_row.get("strategy_discharge_above_eur_per_kwh"),
+            "expensive_hour": summary_row.get("strategy_expensive_hour_threshold_eur_per_kwh"),
+        },
+        "applied_in_dispatch": bool(summary_row.get("strategy_source_json")) or bool(
+            summary_row.get("strategy_charge_below_eur_per_kwh") is not None
+        ),
+        "dispatch_owner_piece": "BatterySimPiece",
+    }
     if trading_only is not None:
         base_trade = {
             "label": "battery_trading_idle",
@@ -1748,14 +1985,9 @@ class SimulatePiece(BasePiece):
         _log(f"Input load_csv={csv_path}")
         _log(f"Input scenario_yaml={scenario_path}")
         _log(f"Output dir={out_dir}")
-        strategy_raw = (input_data.battery_strategy_recommendation_json or "").strip()
-        if strategy_raw and not Path(strategy_raw).is_file():
-            _log(
-                f"WARN battery_strategy_recommendation_json not found ({strategy_raw}); "
-                "using auto price thresholds"
-            )
-            strategy_raw = ""
-        _log(f"Input battery_strategy_recommendation_json={strategy_raw or '(empty)'}")
+        _log(f"Input virtual_solar_csv={input_data.virtual_solar_csv}")
+        _log(f"Input battery_dispatch_csv={input_data.battery_dispatch_csv}")
+        _log(f"Input battery_summary_csv={input_data.battery_summary_csv}")
         if not csv_path.is_file():
             raise FileNotFoundError(f"Load CSV not found: {csv_path}")
         if not scenario_path.is_file():
@@ -1766,9 +1998,11 @@ class SimulatePiece(BasePiece):
                 csv_path,
                 scenario_path,
                 output_dir=out_dir,
+                virtual_solar_csv=input_data.virtual_solar_csv,
+                battery_dispatch_csv=input_data.battery_dispatch_csv,
+                battery_summary_csv=input_data.battery_summary_csv,
                 battery_catalog_json=input_data.battery_catalog_json,
                 inverter_catalog_json=input_data.inverter_catalog_json,
-                battery_strategy_recommendation_json=strategy_raw,
             )
         except Exception as exc:
             (out_dir / "simulate_error.txt").write_text(traceback.format_exc(), encoding="utf-8")

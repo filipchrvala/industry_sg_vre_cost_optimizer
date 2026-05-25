@@ -28,6 +28,8 @@ NODE_PIECES: dict[str, str] = {
 
 SIM_ID = "109_36d206ac-15f9-42ea-9549-b712756722b0"
 STRAT_ID = "107_0e90313e-cdac-44d2-b202-1d61eb55b8fa"
+BATSIM_ID = "108_193e02b8-a3d7-4ad9-aa99-10e76b77eddf"
+SOLAR_ID = "106_24e79064-faab-4489-8a31-9f72cad03311"
 DASH_ID = "112_83e9f675-7a46-4797-a32c-8a42899d2a66"
 KPI_ID = "110_6b1a6e0b-0f1b-49e0-abb1-7fd089ede078"
 INV_ID = "111_39d0e970-8af5-4378-8ac2-20a04f604dad"
@@ -134,20 +136,40 @@ def main() -> None:
                 ns["module"] = piece_name
                 ns["label"] = piece_name
 
-    # --- Simulate inputs (explicit wiring) ---
-    sim_inputs = {
+    # --- BatterySim inputs (explicit wiring) ---
+    battery_inputs = {
         "load_csv": ("101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0", "UserInputPiece", "load_csv", "Load Csv"),
         "scenario_yaml": ("104_eeb3f1b8-5db3-436f-98f9-2c9812b1d6a9", "SizingOptimizationPiece", "sized_scenario_yaml", "Sized Scenario Yaml"),
-        "ranked_catalog_json": ("105_4b358e11-57eb-402a-baac-ed9d720b7e70", "CatalogRankerPiece", "catalog_ranked_recommendation_json", "Catalog Ranked Recommendation Json"),
-        "inverter_catalog_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "inverter_catalog_json", "Inverter Catalog Json"),
-        "battery_catalog_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "battery_catalog_json", "Battery Catalog Json"),
-        "catalog_manifest_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "catalog_manifest_json", "Catalog Manifest Json"),
+        "virtual_solar_csv": (SOLAR_ID, "SolarSimPiece", "virtual_solar_csv", "Virtual Solar Csv"),
         "battery_strategy_recommendation_json": (
             STRAT_ID,
             "BatteryStrategyOptimizerPiece",
             "battery_strategy_recommendation_json",
             "Battery Strategy Recommendation Json",
         ),
+    }
+    battery_wpd_inputs = wpd.setdefault(BATSIM_ID, {}).setdefault("inputs", {})
+    for arg, (src_id, pname, up_arg, label) in battery_inputs.items():
+        suffix = src_id.split("_", 1)[1][:8]
+        battery_wpd_inputs[arg] = {
+            "fromUpstream": True,
+            "upstreamId": _upstream_id(pname, src_id),
+            "upstreamArgument": up_arg,
+            "upstreamValue": f"{_short_label(pname, suffix)} - {label}",
+            "value": "",
+        }
+
+    # --- Simulate inputs (explicit wiring) ---
+    sim_inputs = {
+        "load_csv": ("101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0", "UserInputPiece", "load_csv", "Load Csv"),
+        "scenario_yaml": ("104_eeb3f1b8-5db3-436f-98f9-2c9812b1d6a9", "SizingOptimizationPiece", "sized_scenario_yaml", "Sized Scenario Yaml"),
+        "virtual_solar_csv": (SOLAR_ID, "SolarSimPiece", "virtual_solar_csv", "Virtual Solar Csv"),
+        "battery_dispatch_csv": (BATSIM_ID, "BatterySimPiece", "battery_dispatch_csv", "Battery Dispatch Csv"),
+        "battery_summary_csv": (BATSIM_ID, "BatterySimPiece", "battery_summary_csv", "Battery Summary Csv"),
+        "ranked_catalog_json": ("105_4b358e11-57eb-402a-baac-ed9d720b7e70", "CatalogRankerPiece", "catalog_ranked_recommendation_json", "Catalog Ranked Recommendation Json"),
+        "inverter_catalog_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "inverter_catalog_json", "Inverter Catalog Json"),
+        "battery_catalog_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "battery_catalog_json", "Battery Catalog Json"),
+        "catalog_manifest_json": ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", "CatalogSyncPiece", "catalog_manifest_json", "Catalog Manifest Json"),
     }
     sim_wpd_inputs = wpd.setdefault(SIM_ID, {}).setdefault("inputs", {})
     for arg, (src_id, pname, up_arg, label) in sim_inputs.items():
@@ -159,6 +181,7 @@ def main() -> None:
             "upstreamValue": f"{_short_label(pname, suffix)} - {label}",
             "value": "",
         }
+    sim_wpd_inputs.pop("battery_strategy_recommendation_json", None)
     sim_wpd_inputs.pop("output_dir", None)
 
     # --- Dashboard inputs ---
@@ -181,11 +204,16 @@ def main() -> None:
     # --- edges: only data-flow edges (no duplicate Strategy->Sim if only arg mapping) ---
     # Domino still needs graph edges for upstream resolution
     required_edges = [
+        ("101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0", BATSIM_ID),
+        ("104_eeb3f1b8-5db3-436f-98f9-2c9812b1d6a9", BATSIM_ID),
+        (SOLAR_ID, BATSIM_ID),
+        (STRAT_ID, BATSIM_ID),
         ("101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0", SIM_ID),
         ("104_eeb3f1b8-5db3-436f-98f9-2c9812b1d6a9", SIM_ID),
+        (SOLAR_ID, SIM_ID),
+        (BATSIM_ID, SIM_ID),
         ("105_4b358e11-57eb-402a-baac-ed9d720b7e70", SIM_ID),
         ("102_ee96043b-6cb0-42f1-934e-ed0b8a7f8f78", SIM_ID),
-        (STRAT_ID, SIM_ID),
         (SIM_ID, KPI_ID),
         (SIM_ID, INV_ID),
         (SIM_ID, DASH_ID),
@@ -209,12 +237,12 @@ def main() -> None:
     cleaned = []
     seen_pairs: set[tuple[str, str]] = set()
     valid_sim_sources = {src for src, tgt in required_edges if tgt == SIM_ID}
+    valid_battery_sources = {src for src, tgt in required_edges if tgt == BATSIM_ID}
     for e in edges:
         pair = (e.get("source", ""), e.get("target", ""))
         if pair in seen_pairs:
             continue
-        # drop strategy -> battery sim (not used by BatterySimPiece)
-        if e.get("source") == STRAT_ID and e.get("target") == "108_193e02b8-a3d7-4ad9-aa99-10e76b77eddf":
+        if e.get("target") == BATSIM_ID and e.get("source") not in valid_battery_sources:
             continue
         # Keep Simulate incoming edges only for sources that are actually mapped to Simulate inputs.
         if e.get("target") == SIM_ID and e.get("source") not in valid_sim_sources:

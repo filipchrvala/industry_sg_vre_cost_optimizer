@@ -294,6 +294,12 @@
                     "description": "Path to virtual_solar.csv",
                     "title": "Virtual Solar Csv",
                     "type": "string"
+                },
+                "battery_strategy_recommendation_json": {
+                    "default": "",
+                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+                    "title": "Battery Strategy Recommendation Json",
+                    "type": "string"
                 }
             },
             "required": [
@@ -317,12 +323,17 @@
                 "battery_summary_csv": {
                     "title": "Battery Summary Csv",
                     "type": "string"
+                },
+                "battery_dispatch_csv": {
+                    "title": "Battery Dispatch Csv",
+                    "type": "string"
                 }
             },
             "required": [
                 "message",
                 "virtual_battery_soc_csv",
-                "battery_summary_csv"
+                "battery_summary_csv",
+                "battery_dispatch_csv"
             ],
             "title": "OutputModel",
             "type": "object"
@@ -588,10 +599,19 @@
                     "title": "Scenario Yaml",
                     "type": "string"
                 },
-                "battery_strategy_recommendation_json": {
-                    "default": "",
-                    "description": "battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece (optional)",
-                    "title": "Battery Strategy Recommendation Json",
+                "virtual_solar_csv": {
+                    "description": "Path to virtual_solar.csv from SolarSimPiece",
+                    "title": "Virtual Solar Csv",
+                    "type": "string"
+                },
+                "battery_dispatch_csv": {
+                    "description": "Path to battery_dispatch.csv from BatterySimPiece",
+                    "title": "Battery Dispatch Csv",
+                    "type": "string"
+                },
+                "battery_summary_csv": {
+                    "description": "Path to battery_summary.csv from BatterySimPiece",
+                    "title": "Battery Summary Csv",
                     "type": "string"
                 },
                 "ranked_catalog_json": {
@@ -621,7 +641,10 @@
             },
             "required": [
                 "load_csv",
-                "scenario_yaml"
+                "scenario_yaml",
+                "virtual_solar_csv",
+                "battery_dispatch_csv",
+                "battery_summary_csv"
             ],
             "title": "InputModel",
             "type": "object"
