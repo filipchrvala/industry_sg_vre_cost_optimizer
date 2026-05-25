@@ -278,6 +278,16 @@
         },
         "description": "Generate battery SOC timeseries from load and PV profile",
         "dependencies_group": "0",
+        "container_resources": {
+            "requests": {
+                "cpu": 100,
+                "memory": 128
+            },
+            "limits": {
+                "cpu": 500,
+                "memory": 1024
+            }
+        },
         "input_schema": {
             "properties": {
                 "load_csv": {
