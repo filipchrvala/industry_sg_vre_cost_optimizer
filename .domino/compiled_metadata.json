@@ -205,16 +205,6 @@
         },
         "description": "Aggregate MRK report and KPI CSV into dashboard JSON",
         "dependencies_group": "0",
-        "container_resources": {
-            "requests": {
-                "cpu": 100,
-                "memory": 128
-            },
-            "limits": {
-                "cpu": 500,
-                "memory": 512
-            }
-        },
         "input_schema": {
             "properties": {
                 "report_json": {
@@ -278,16 +268,6 @@
         },
         "description": "Generate battery SOC timeseries from load and PV profile",
         "dependencies_group": "0",
-        "container_resources": {
-            "requests": {
-                "cpu": 250,
-                "memory": 512
-            },
-            "limits": {
-                "cpu": 1000,
-                "memory": 2048
-            }
-        },
         "input_schema": {
             "properties": {
                 "load_csv": {
@@ -303,12 +283,6 @@
                 "virtual_solar_csv": {
                     "description": "Path to virtual_solar.csv",
                     "title": "Virtual Solar Csv",
-                    "type": "string"
-                },
-                "battery_strategy_recommendation_json": {
-                    "default": "",
-                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
-                    "title": "Battery Strategy Recommendation Json",
                     "type": "string"
                 }
             },
@@ -333,17 +307,12 @@
                 "battery_summary_csv": {
                     "title": "Battery Summary Csv",
                     "type": "string"
-                },
-                "battery_dispatch_csv": {
-                    "title": "Battery Dispatch Csv",
-                    "type": "string"
                 }
             },
             "required": [
                 "message",
                 "virtual_battery_soc_csv",
-                "battery_summary_csv",
-                "battery_dispatch_csv"
+                "battery_summary_csv"
             ],
             "title": "OutputModel",
             "type": "object"
@@ -570,9 +539,7 @@
             "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
-        "tags": [
-            "Energy"
-        ],
+        "tags": [],
         "style": {
             "node_label": "Simulate MRK Scenario",
             "node_type": "default",
@@ -587,16 +554,6 @@
         },
         "description": "Run MRK simulation baseline/PV/battery",
         "dependencies_group": "0",
-        "container_resources": {
-            "requests": {
-                "cpu": 100,
-                "memory": 128
-            },
-            "limits": {
-                "cpu": 500,
-                "memory": 1024
-            }
-        },
         "input_schema": {
             "properties": {
                 "load_csv": {
@@ -609,19 +566,10 @@
                     "title": "Scenario Yaml",
                     "type": "string"
                 },
-                "virtual_solar_csv": {
-                    "description": "Path to virtual_solar.csv from SolarSimPiece",
-                    "title": "Virtual Solar Csv",
-                    "type": "string"
-                },
-                "battery_dispatch_csv": {
-                    "description": "Path to battery_dispatch.csv from BatterySimPiece",
-                    "title": "Battery Dispatch Csv",
-                    "type": "string"
-                },
-                "battery_summary_csv": {
-                    "description": "Path to battery_summary.csv from BatterySimPiece",
-                    "title": "Battery Summary Csv",
+                "output_dir": {
+                    "default": "",
+                    "description": "Optional output dir when results_path is not set",
+                    "title": "Output Dir",
                     "type": "string"
                 },
                 "ranked_catalog_json": {
@@ -651,10 +599,7 @@
             },
             "required": [
                 "load_csv",
-                "scenario_yaml",
-                "virtual_solar_csv",
-                "battery_dispatch_csv",
-                "battery_summary_csv"
+                "scenario_yaml"
             ],
             "title": "InputModel",
             "type": "object"

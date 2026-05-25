@@ -15,16 +15,11 @@ class DashboardPiece(BasePiece):
     """Build finance-focused dashboard payload for CFO decisions."""
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
-        rep_path = Path((input_data.report_json or "").strip())
-        kpi_path = Path((input_data.kpi_results_csv or "").strip())
-        inv_path = Path((input_data.investment_evaluation_csv or "").strip())
+        rep_path = Path(input_data.report_json)
+        kpi_path = Path(input_data.kpi_results_csv)
+        inv_path = Path(input_data.investment_evaluation_csv)
         out_dir = Path(self.results_path or rep_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "dashboard_started.txt").write_text(
-            f"report_json={rep_path}\nkpi_results_csv={kpi_path}\n"
-            f"investment_evaluation_csv={inv_path}\nresults_path={self.results_path}\n",
-            encoding="utf-8",
-        )
         log_path = out_dir / "dashboard.log"
 
         def _log(msg: str) -> None:
@@ -57,40 +52,23 @@ class DashboardPiece(BasePiece):
             chart = {"title": "Priebeh spotreby energie: baseline vs FVE+batéria", "x": [], "series": []}
             if profile_path.is_file():
                 prof = pd.read_csv(profile_path)
-                dt_col = "datetime" if "datetime" in prof.columns else prof.columns[0]
-                base_col = next(
-                    (c for c in prof.columns if "baseline" in c.lower() and "kwh" in c.lower()),
-                    "baseline_energy_kwh_interval",
-                )
-                opt_col = next(
-                    (c for c in prof.columns if "optim" in c.lower() and "kwh" in c.lower()),
-                    "optimized_energy_kwh_interval",
-                )
                 chart = {
                     "title": "Priebeh spotreby energie: baseline vs FVE+batéria",
-                    "x": prof[dt_col].astype(str).tolist() if dt_col in prof.columns else [],
+                    "x": prof["datetime"].astype(str).tolist(),
                     "series": [
                         {
                             "name": "Bez FVE a batérie",
                             "unit": "kWh/interval",
                             "values": pd.to_numeric(
-                                prof[base_col] if base_col in prof.columns else 0,
-                                errors="coerce",
-                            )
-                            .fillna(0.0)
-                            .round(4)
-                            .tolist(),
+                                prof["baseline_energy_kwh_interval"], errors="coerce"
+                            ).fillna(0.0).round(4).tolist(),
                         },
                         {
                             "name": "S FVE a batériou",
                             "unit": "kWh/interval",
                             "values": pd.to_numeric(
-                                prof[opt_col] if opt_col in prof.columns else 0,
-                                errors="coerce",
-                            )
-                            .fillna(0.0)
-                            .round(4)
-                            .tolist(),
+                                prof["optimized_energy_kwh_interval"], errors="coerce"
+                            ).fillna(0.0).round(4).tolist(),
                         },
                     ],
                 }
