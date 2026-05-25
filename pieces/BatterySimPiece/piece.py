@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import json
+import os
 from pathlib import Path
 import sys
 import traceback
@@ -20,6 +22,14 @@ def _load_simulate_module():
     return importlib.import_module("pieces.SimulatePiece.piece")
 
 
+def _write_best_effort(path: Path, content: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    except Exception:
+        pass
+
+
 class BatterySimPiece(BasePiece):
     """Generate battery SOC profile using dispatch model."""
 
@@ -31,25 +41,54 @@ class BatterySimPiece(BasePiece):
         out_dir = Path(self.results_path or scenario_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / "battery_sim.log"
+        bootstrap = {
+            "load_csv": str(csv_path),
+            "scenario_yaml": str(scenario_path),
+            "virtual_solar_csv": str(solar_path),
+            "battery_strategy_recommendation_json": str(strategy_path) if strategy_path else "",
+            "results_path": str(self.results_path or ""),
+            "resolved_output_dir": str(out_dir),
+            "cwd": os.getcwd(),
+            "python_path": sys.path,
+        }
+        _write_best_effort(
+            out_dir / "battery_sim_started.txt",
+            (
+                f"load_csv={csv_path}\n"
+                f"scenario_yaml={scenario_path}\n"
+                f"virtual_solar_csv={solar_path}\n"
+                f"battery_strategy_recommendation_json={strategy_path or ''}\n"
+                f"results_path={self.results_path}\n"
+                f"resolved_output_dir={out_dir}\n"
+                f"cwd={os.getcwd()}\n"
+            ),
+        )
+        _write_best_effort(
+            out_dir / "battery_sim_bootstrap.json",
+            json.dumps(bootstrap, indent=2, ensure_ascii=False),
+        )
 
         def _log(msg: str) -> None:
             text = f"[BatterySimPiece] {msg}"
             print(text, flush=True)
-            with log_path.open("a", encoding="utf-8") as f:
-                f.write(text + "\n")
-
-        _log(f"Input load_csv={csv_path}")
-        _log(f"Input scenario_yaml={scenario_path}")
-        _log(f"Input virtual_solar_csv={solar_path}")
-        _log(f"Input battery_strategy_recommendation_json={strategy_path or '(empty)'}")
-        if not csv_path.is_file():
-            raise FileNotFoundError(f"Load CSV not found: {csv_path}")
-        if not scenario_path.is_file():
-            raise FileNotFoundError(f"Scenario YAML not found: {scenario_path}")
-        if not solar_path.is_file():
-            raise FileNotFoundError(f"Virtual solar CSV not found: {solar_path}")
+            try:
+                with log_path.open("a", encoding="utf-8") as f:
+                    f.write(text + "\n")
+            except Exception:
+                pass
 
         try:
+            _log(f"Input load_csv={csv_path}")
+            _log(f"Input scenario_yaml={scenario_path}")
+            _log(f"Input virtual_solar_csv={solar_path}")
+            _log(f"Input battery_strategy_recommendation_json={strategy_path or '(empty)'}")
+            if not csv_path.is_file():
+                raise FileNotFoundError(f"Load CSV not found: {csv_path}")
+            if not scenario_path.is_file():
+                raise FileNotFoundError(f"Scenario YAML not found: {scenario_path}")
+            if not solar_path.is_file():
+                raise FileNotFoundError(f"Virtual solar CSV not found: {solar_path}")
+
             sim = _load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
             df = sim.load_consumption_csv(csv_path)
@@ -171,7 +210,7 @@ class BatterySimPiece(BasePiece):
             )
             _log(f"Computed battery dispatch rows={len(dispatch_df)}")
         except Exception as exc:
-            (out_dir / "battery_sim_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            _write_best_effort(out_dir / "battery_sim_error.txt", traceback.format_exc())
             _log(f"ERROR during battery simulation: {exc}")
             raise
 
