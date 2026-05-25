@@ -5,6 +5,16 @@
   "dependency": {
     "requirements_file": "requirements_0.txt"
   },
+  "container_resources": {
+    "requests": {
+      "cpu": 100,
+      "memory": 128
+    },
+    "limits": {
+      "cpu": 500,
+      "memory": 1024
+    }
+  },
   "style": {
     "node_label": "Battery Simulation",
     "icon_class_name": "fa-solid:battery-half"
