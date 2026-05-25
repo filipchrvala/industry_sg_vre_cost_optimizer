@@ -280,12 +280,12 @@
         "dependencies_group": "0",
         "container_resources": {
             "requests": {
-                "cpu": 100,
-                "memory": 128
+                "cpu": 250,
+                "memory": 512
             },
             "limits": {
-                "cpu": 500,
-                "memory": 1024
+                "cpu": 1000,
+                "memory": 2048
             }
         },
         "input_schema": {
