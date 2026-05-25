@@ -34,7 +34,7 @@ DASH_ID = "112_83e9f675-7a46-4797-a32c-8a42899d2a66"
 KPI_ID = "110_6b1a6e0b-0f1b-49e0-abb1-7fd089ede078"
 INV_ID = "111_39d0e970-8af5-4378-8ac2-20a04f604dad"
 
-HIGH_MEMORY_MB = {"SimulatePiece": 1024, "BatterySimPiece": 1024, "CatalogRankerPiece": 512}
+HIGH_MEMORY_MB = {"SimulatePiece": 1024, "BatterySimPiece": 2048, "CatalogRankerPiece": 512}
 
 
 def _upstream_id(piece_name: str, node_id: str) -> str:
