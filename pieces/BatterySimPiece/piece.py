@@ -15,23 +15,23 @@ from domino.base_piece import BasePiece
 from .models import InputModel, OutputModel
 
 
-def _load_simulate_module():
-    repo_root = Path(__file__).resolve().parents[2]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulatePiece.piece")
-
-
-def _write_best_effort(path: Path, content: str) -> None:
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-    except Exception:
-        pass
-
-
 class BatterySimPiece(BasePiece):
     """Generate battery SOC profile using dispatch model."""
+
+    @staticmethod
+    def _load_simulate_module():
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        return importlib.import_module("pieces.SimulatePiece.piece")
+
+    @staticmethod
+    def _write_best_effort(path: Path, content: str) -> None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        except Exception:
+            pass
 
     def piece_function(self, input_data: InputModel) -> OutputModel:
         csv_path = Path(input_data.load_csv)
@@ -51,7 +51,7 @@ class BatterySimPiece(BasePiece):
             "cwd": os.getcwd(),
             "python_path": sys.path,
         }
-        _write_best_effort(
+        self._write_best_effort(
             out_dir / "battery_sim_started.txt",
             (
                 f"load_csv={csv_path}\n"
@@ -63,7 +63,7 @@ class BatterySimPiece(BasePiece):
                 f"cwd={os.getcwd()}\n"
             ),
         )
-        _write_best_effort(
+        self._write_best_effort(
             out_dir / "battery_sim_bootstrap.json",
             json.dumps(bootstrap, indent=2, ensure_ascii=False),
         )
@@ -89,7 +89,7 @@ class BatterySimPiece(BasePiece):
             if not solar_path.is_file():
                 raise FileNotFoundError(f"Virtual solar CSV not found: {solar_path}")
 
-            sim = _load_simulate_module()
+            sim = self._load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
             df = sim.load_consumption_csv(csv_path)
             solar_df = pd.read_csv(solar_path)
@@ -210,7 +210,7 @@ class BatterySimPiece(BasePiece):
             )
             _log(f"Computed battery dispatch rows={len(dispatch_df)}")
         except Exception as exc:
-            _write_best_effort(out_dir / "battery_sim_error.txt", traceback.format_exc())
+            self._write_best_effort(out_dir / "battery_sim_error.txt", traceback.format_exc())
             _log(f"ERROR during battery simulation: {exc}")
             raise
 
