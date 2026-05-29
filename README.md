@@ -1,7 +1,19 @@
 # Industry Smart Grid VRE Cost Optimizer – Domino Pieces Repository
 
-**Owner:** SCDI 
+**Owner:** filipchrvala  
 **Project:** Industry Smart Grid VRE Cost Optimizer
+
+## Structure
+
+- `pieces/`: Domino Pieces
+- `dependencies/`: Docker and requirements files
+- `config.toml`: Repository configuration
+- `.github/workflows/`: CI/CD for building and publishing Pieces
+
+## Usage
+
+1. Install Domino CLI
+2. Run: `domino-pieces publish`
 
 ## Pieces Overview
 
@@ -20,3 +32,14 @@
 | InvestmentEvalPiece | Compute investment evaluation from simulated KPIs. |
 | DashboardPiece | Aggregate MRK report and KPI CSV into dashboard JSON. |
 
+## Main Outputs
+
+- `tests/SimulatePiece_Outputs/mrk_savings_report.json`
+- `tests/KPIPiece_Outputs/kpi_results.csv`
+- `tests/InvestmentEvalPiece_Outputs/investment_evaluation.csv`
+- `tests/DashboardPiece_Outputs/dashboard_data.json`
+
+## Test Dependencies
+
+- `requirements-tests.txt` is recommended to keep in the repo.
+- It is used by test/CI pipelines (for example `pytest`) and keeps test dependencies separated from runtime dependencies.
