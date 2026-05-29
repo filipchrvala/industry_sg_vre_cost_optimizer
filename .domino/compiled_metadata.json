@@ -595,6 +595,12 @@
                     "description": "Optional catalog sync manifest JSON",
                     "title": "Catalog Manifest Json",
                     "type": "string"
+                },
+                "battery_strategy_recommendation_json": {
+                    "default": "",
+                    "description": "Optional battery_strategy_recommendation.json from BatteryStrategyOptimizerPiece",
+                    "title": "Battery Strategy Recommendation Json",
+                    "type": "string"
                 }
             },
             "required": [

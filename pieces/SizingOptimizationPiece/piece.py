@@ -1,23 +1,16 @@
 from __future__ import annotations
 
 import copy
-import importlib
 import json
 from pathlib import Path
-import sys
 import traceback
 
 import yaml
 from domino.base_piece import BasePiece
 
+from pieces.simulate_import import load_simulate_module
+
 from .models import InputModel, OutputModel
-
-
-def _load_simulate_module():
-    repo_root = Path(__file__).resolve().parents[2]
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    return importlib.import_module("pieces.SimulatePiece.piece")
 
 
 class SizingOptimizationPiece(BasePiece):
@@ -48,7 +41,7 @@ class SizingOptimizationPiece(BasePiece):
             raise FileNotFoundError(f"Technical limits JSON not found: {tl_path}")
 
         try:
-            sim = _load_simulate_module()
+            sim = load_simulate_module()
             cfg = yaml.safe_load(scenario_path.read_text(encoding="utf-8")) or {}
             sim._apply_system_scope(cfg)
             df = sim.load_consumption_csv(csv_path)

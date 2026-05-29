@@ -8,3 +8,10 @@ __pycache__/
 venv/
 output/*.json
 !output/.gitkeep
+tests/**/*_Outputs/
+tests/**/*_Output/
+tests/_battery_smoke/
+tests/_battery_smoke2/
+tests/_battery_revert/
+docker_battery_test/
+*.docx
