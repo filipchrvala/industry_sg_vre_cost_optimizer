@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from sync_test_customization import NODE_PIECES, _upstream_id, _short_label  # noqa: E402
+from sync_test_customization import NODE_PIECES, _upstream_id, _short_label, normalize_upstream_ids_and_edges  # noqa: E402
 
 CUSTOM = ROOT / "Test.customization"
 OUT_ONEDATA = ROOT / "test_cost_optimizer_onedata.customization"
@@ -129,6 +129,7 @@ def build(mode: str) -> dict:
         )
 
     _wire_run_id(data)
+    normalize_upstream_ids_and_edges(data)
     if mode == "onedata":
         _apply_inputs(data, ONEDATA_INPUTS)
     else:

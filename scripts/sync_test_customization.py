@@ -36,28 +36,78 @@ INV_ID = "111_39d0e970-8af5-4378-8ac2-20a04f604dad"
 
 HIGH_MEMORY_MB = {"SimulatePiece": 1024, "BatterySimPiece": 2048, "CatalogRankerPiece": 512}
 
+# Must match Domino UI / Airflow task_id prefixes (not domino-py compile names).
+DOMINO_TASK_PREFIX: dict[str, str] = {
+    "UserInputPiece": "UserInputP",
+    "CatalogSyncPiece": "CatalogSyn",
+    "TechnicalLimitsPiece": "TechnicalL",
+    "SizingOptimizationPiece": "SizingOpti",
+    "CatalogRankerPiece": "CatalogRan",
+    "SolarSimPiece": "SolarSimPi",
+    "BatteryStrategyOptimizerPiece": "BatteryStr",
+    "BatterySimPiece": "BatterySim",
+    "SimulatePiece": "SimulatePi",
+    "KPIPiece": "KPIPiece",
+    "InvestmentEvalPiece": "Investment",
+    "DashboardPiece": "DashboardP",
+}
+
 
 def _upstream_id(piece_name: str, node_id: str) -> str:
-    """Domino upstreamId: shortened piece name + uuid without dashes."""
-    short = piece_name.replace("Piece", "Pi_") if piece_name.endswith("Piece") else piece_name
-    if piece_name == "BatteryStrategyOptimizerPiece":
-        short = "BatteryStrategyOptimizerPi_"
-    elif piece_name == "SizingOptimizationPiece":
-        short = "SizingOpti_"
-    elif piece_name == "CatalogRankerPiece":
-        short = "CatalogRan_"
-    elif piece_name == "CatalogSyncPiece":
-        short = "CatalogSyn_"
-    elif piece_name == "UserInputPiece":
-        short = "UserInputP_"
-    elif piece_name == "TechnicalLimitsPiece":
-        short = "TechnicalLi_"
-    elif piece_name == "InvestmentEvalPiece":
-        short = "InvestmentEval_"
-    elif piece_name == "SimulatePiece":
-        short = "SimulatePi_"
+    """Domino UI task_id / upstreamId prefix + node uuid without dashes."""
+    prefix = DOMINO_TASK_PREFIX[piece_name]
     uuid = node_id.split("_", 1)[1].replace("-", "")
-    return f"{short}{uuid}"
+    return f"{prefix}_{uuid}"
+
+
+def _node_id_from_upstream_id(upstream_id: str) -> str | None:
+    if not upstream_id or len(upstream_id) < 32:
+        return None
+    suffix = upstream_id[-32:]
+    for node_id in NODE_PIECES:
+        if node_id.split("_", 1)[1].replace("-", "") == suffix:
+            return node_id
+    return None
+
+
+def _edge_dict(source: str, target: str) -> dict:
+    return {
+        "source": source,
+        "sourceHandle": f"source-{source}",
+        "target": target,
+        "targetHandle": f"target-{target}",
+        "id": f"reactflow__edge-{source}source-{source}-{target}target-{target}",
+        "markerEnd": {"type": "arrowclosed", "width": 20, "height": 20},
+    }
+
+
+def normalize_upstream_ids_and_edges(data: dict) -> None:
+    """Align upstreamId values and graph edges with Domino UI task_id rules."""
+    wpd = data.setdefault("workflowPiecesData", {})
+    for node_id, piece_name in NODE_PIECES.items():
+        inputs = wpd.setdefault(node_id, {}).setdefault("inputs", {})
+        for spec in inputs.values():
+            if not spec.get("fromUpstream"):
+                continue
+            src_node = _node_id_from_upstream_id(spec.get("upstreamId", ""))
+            if not src_node:
+                continue
+            src_piece = NODE_PIECES[src_node]
+            spec["upstreamId"] = _upstream_id(src_piece, src_node)
+
+    edges = data.setdefault("workflowEdges", [])
+    seen = {(e.get("source"), e.get("target")) for e in edges}
+    for node_id in NODE_PIECES:
+        for spec in wpd.get(node_id, {}).get("inputs", {}).values():
+            if not spec.get("fromUpstream"):
+                continue
+            src_node = _node_id_from_upstream_id(spec.get("upstreamId", ""))
+            if not src_node or src_node == node_id:
+                continue
+            pair = (src_node, node_id)
+            if pair not in seen:
+                edges.append(_edge_dict(src_node, node_id))
+                seen.add(pair)
 
 
 def _short_label(piece_name: str, node_suffix: str) -> str:
@@ -256,6 +306,8 @@ def main() -> None:
             seen_pairs.add((s, t))
 
     data["workflowEdges"] = cleaned
+
+    normalize_upstream_ids_and_edges(data)
 
     CUSTOM.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     sim_schema = data["workflowPieces"][SIM_ID]["input_schema"]["properties"]
