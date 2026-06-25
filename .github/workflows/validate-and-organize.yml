@@ -8,6 +8,7 @@ on:
       - "config.toml"
       - "pieces/**"
       - "dependencies/**"
+      - "scripts/verify_domino_imports.py"
 
 permissions:
   contents: write
@@ -53,6 +54,7 @@ jobs:
           tomli.load(p.open('rb'))
           print('config.toml parses OK')
           "
+          python scripts/verify_domino_imports.py
           domino piece organize --build-images --source-url=https://github.com/${{ github.repository }}
 
       - name: Publish images

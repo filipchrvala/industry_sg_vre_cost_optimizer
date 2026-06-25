@@ -1,6 +1,9 @@
 ﻿from pydantic import BaseModel, Field
 
-from pieces.common.onedata_models import OneDataSecretsModel, RunIdInputMixin
+try:
+    from common.onedata_models import OneDataSecretsModel, RunIdInputMixin
+except ModuleNotFoundError:
+    from pieces.common.onedata_models import OneDataSecretsModel, RunIdInputMixin
 
 
 class InputModel(RunIdInputMixin):
