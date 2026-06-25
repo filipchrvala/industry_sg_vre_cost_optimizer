@@ -5,20 +5,24 @@
             "requirements_file": "requirements_0.txt"
         },
         "pieces": [
-            "UserInputPiece",
-            "CatalogSyncPiece",
-            "TechnicalLimitsPiece",
             "SizingOptimizationPiece",
+            "KPIPiece",
+            "UserInputPiece",
             "CatalogRankerPiece",
             "SolarSimPiece",
-            "BatteryStrategyOptimizerPiece",
-            "BatterySimPiece",
+            "TechnicalLimitsPiece",
             "SimulatePiece",
-            "KPIPiece",
+            "BatterySimPiece",
+            "DashboardPiece",
+            "BatteryStrategyOptimizerPiece",
             "InvestmentEvalPiece",
-            "DashboardPiece"
+            "CatalogSyncPiece"
         ],
-        "secrets": [],
-        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.36-group0"
+        "secrets": [
+            "onedata_token",
+            "onedata_onezone_host",
+            "onedata_output_dir"
+        ],
+        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.38-group0"
     }
 }
