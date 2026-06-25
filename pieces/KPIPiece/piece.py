@@ -9,11 +9,25 @@ from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
 
+try:
+    from common import onedata_io as od
+except ModuleNotFoundError:
+    try:
+        from pieces.common import onedata_io as od
+    except ModuleNotFoundError:
+        od = None
+
 
 class KPIPiece(BasePiece):
     """Extract compact KPI table from MRK report JSON."""
 
-    def piece_function(self, input_data: InputModel) -> OutputModel:
+    def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
+        _stage = None
+        _piece_out = None
+        _run_id = None
+        if od is not None:
+            input_data, _stage = od.stage_inputs(input_data, secrets_data)
+            _run_id = od.resolve_run_id(input_data, secrets_data)
         rep_path = Path(input_data.report_json)
         out_dir = Path(self.results_path or rep_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -60,8 +74,20 @@ class KPIPiece(BasePiece):
             csv_path = out_dir / "kpi_results.csv"
             pd.DataFrame([out]).to_csv(csv_path, index=False)
             _log(f"Wrote KPI CSV: {csv_path}")
-            return OutputModel(message="KPI calculation finished", kpi_results_csv=str(csv_path))
+            _piece_out = OutputModel(message="KPI calculation finished", kpi_results_csv=str(csv_path))
         except Exception as exc:
             (out_dir / "kpi_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             _log(f"ERROR during KPI calculation: {exc}")
             raise
+        finally:
+            if od is not None and _piece_out is None:
+                od.cleanup_on_error(
+                    self.results_path, secrets_data, "KPIPiece", _stage, run_id=_run_id
+                )
+            elif _stage is not None:
+                _stage.cleanup()
+        if od is not None and _piece_out is not None:
+            return od.finish_piece(
+                _piece_out, self.results_path, secrets_data, "KPIPiece", _stage, run_id=_run_id
+            )
+        return _piece_out

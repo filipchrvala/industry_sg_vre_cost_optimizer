@@ -43,3 +43,35 @@
 
 - `requirements-tests.txt` is recommended to keep in the repo.
 - It is used by test/CI pipelines (for example `pytest`) and keeps test dependencies separated from runtime dependencies.
+
+## OneData workflow (UC3.2)
+
+Static inputs live on OneData under `onedata:///FilipsSpace/cost_optimizer/inputs/`.
+Each workflow run writes to its own subfolder: `.../cost_optimizer/outputs/<run_id>/<PieceName>/`.
+
+| File | Purpose |
+|------|---------|
+| `test_cost_optimizer_onedata.customization` | Domino import — OneData paths + secrets |
+| `test_cost_optimizer_local.customization` | Local Domino — `/home/shared_storage/cost_optimizer/inputs/` |
+
+### Local Domino (GitHub image `ghcr.io/filipchrvala/...`)
+
+1. Build/publish image `0.1.34-group0` (or bump `config.toml` VERSION).
+2. Seed shared storage inside Domino: `python scripts/seed_shared_storage_cost_optimizer.py`
+3. Import `test_cost_optimizer_local.customization` and run.
+
+### OneData testbed
+
+1. `set ONEDATA_TOKEN=...` then `python scripts/seed_onedata_cost_optimizer_inputs.py`
+2. Import `test_cost_optimizer_onedata.customization`
+3. Set workflow secrets: `onedata_token`, optional `onedata_onezone_host`, `onedata_output_dir`
+
+Regenerate workflow JSON after schema changes:
+
+```powershell
+python scripts/refresh_compiled_metadata.py
+python scripts/generate_onedata_customization.py
+```
+
+Local smoke (no OneData): `python scripts/_local_workflow_smoke.py`
+

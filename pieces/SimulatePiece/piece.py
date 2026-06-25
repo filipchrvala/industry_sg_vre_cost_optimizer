@@ -19,6 +19,14 @@ from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
 
+try:
+    from common import onedata_io as od
+except ModuleNotFoundError:
+    try:
+        from pieces.common import onedata_io as od
+    except ModuleNotFoundError:
+        od = None
+
 # --- battery strategy (voliteľné prahy z BatteryStrategyOptimizerPiece) ---
 
 
@@ -1962,7 +1970,13 @@ def run_analysis(
 class SimulatePiece(BasePiece):
     """Run MRK+PV+battery simulation and write mrk_savings_report.json."""
 
-    def piece_function(self, input_data: InputModel) -> OutputModel:
+    def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
+        _stage = None
+        _piece_out = None
+        _run_id = None
+        if od is not None:
+            input_data, _stage = od.stage_inputs(input_data, secrets_data)
+            _run_id = od.resolve_run_id(input_data, secrets_data, generate=False)
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
         if self.results_path:
@@ -2007,6 +2021,8 @@ class SimulatePiece(BasePiece):
         except Exception as exc:
             (out_dir / "simulate_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             _log(f"ERROR during run_analysis: {exc}")
+            if od is not None:
+                od.cleanup_on_error(self.results_path, secrets_data, "SimulatePiece", _stage, run_id=_run_id)
             raise
         report_path = out_dir / "mrk_savings_report.json"
         if not report_path.is_file():
@@ -2085,4 +2101,11 @@ class SimulatePiece(BasePiece):
 
         report_path = out_dir / "mrk_savings_report.json"
         _log(f"Wrote outputs: {report_path}, {out_dir / 'summary.csv'}, {out_dir / 'simulated_results.csv'}")
-        return OutputModel(message="Simulation finished", report_json=str(report_path))
+        _piece_out = OutputModel(message="Simulation finished", report_json=str(report_path))
+        if od is not None and _piece_out is not None:
+            return od.finish_piece(
+                _piece_out, self.results_path, secrets_data, "SimulatePiece", _stage, run_id=_run_id
+            )
+        if _stage is not None:
+            _stage.cleanup()
+        return _piece_out

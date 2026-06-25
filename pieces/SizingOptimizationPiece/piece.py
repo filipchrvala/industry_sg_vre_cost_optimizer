@@ -12,11 +12,25 @@ from pieces.simulate_import import load_simulate_module
 
 from .models import InputModel, OutputModel
 
+try:
+    from common import onedata_io as od
+except ModuleNotFoundError:
+    try:
+        from pieces.common import onedata_io as od
+    except ModuleNotFoundError:
+        od = None
+
 
 class SizingOptimizationPiece(BasePiece):
     """Resolve final scenario sizing (manual or auto)."""
 
-    def piece_function(self, input_data: InputModel) -> OutputModel:
+    def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
+        _stage = None
+        _piece_out = None
+        _run_id = None
+        if od is not None:
+            input_data, _stage = od.stage_inputs(input_data, secrets_data)
+            _run_id = od.resolve_run_id(input_data, secrets_data, generate=False)
         csv_path = Path(input_data.load_csv)
         scenario_path = Path(input_data.scenario_yaml)
         tl_path = Path(input_data.technical_limits_json)
@@ -56,6 +70,8 @@ class SizingOptimizationPiece(BasePiece):
         except Exception as exc:
             (out_dir / "sizing_optimization_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             _log(f"ERROR during sizing optimization: {exc}")
+            if od is not None:
+                od.cleanup_on_error(self.results_path, secrets_data, "SizingOptimizationPiece", _stage, run_id=_run_id)
             raise
 
         sized_yaml = out_dir / "scenario_sized.yaml"
@@ -67,8 +83,15 @@ class SizingOptimizationPiece(BasePiece):
             encoding="utf-8",
         )
         _log(f"Wrote outputs: {sized_yaml}, {out_json}")
-        return OutputModel(
+        _piece_out = OutputModel(
             message="Sizing optimization finished",
             sized_scenario_yaml=str(sized_yaml),
             sizing_optimization_json=str(out_json),
         )
+        if od is not None and _piece_out is not None:
+            return od.finish_piece(
+                _piece_out, self.results_path, secrets_data, "SizingOptimizationPiece", _stage, run_id=_run_id
+            )
+        if _stage is not None:
+            _stage.cleanup()
+        return _piece_out

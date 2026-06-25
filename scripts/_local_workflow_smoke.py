@@ -77,9 +77,9 @@ def main() -> int:
                 scenario_yaml=str(scenario_src),
             )
         )
-        return o.load_csv, o.scenario_yaml
+        return o.load_csv, o.scenario_yaml, o.run_id
 
-    load_csv, scenario_yaml = run_step("UserInput", s1)
+    load_csv, scenario_yaml, run_id = run_step("UserInput", s1)
 
     from pieces.CatalogSyncPiece.models import InputModel as CSIn
     from pieces.CatalogSyncPiece.piece import CatalogSyncPiece
@@ -87,7 +87,7 @@ def main() -> int:
     def s2():
         p = _piece(CatalogSyncPiece)
         p.results_path = str(OUT["catalog"])
-        o = p.piece_function(CSIn(scenario_yaml=scenario_yaml))
+        o = p.piece_function(CSIn(scenario_yaml=scenario_yaml, run_id=run_id))
         return o.pv_catalog_json, o.inverter_catalog_json, o.battery_catalog_json, o.catalog_manifest_json
 
     pv_cat, inv_cat, bat_cat, manifest = run_step("CatalogSync", s2)
@@ -98,7 +98,7 @@ def main() -> int:
     def s3():
         p = _piece(TechnicalLimitsPiece)
         p.results_path = str(OUT["tl"])
-        o = p.piece_function(TLIn(load_csv=load_csv, scenario_yaml=scenario_yaml))
+        o = p.piece_function(TLIn(load_csv=load_csv, scenario_yaml=scenario_yaml, run_id=run_id))
         return o.technical_limits_json, o.scenario_yaml
 
     tl_json, scenario_yaml = run_step("TechnicalLimits", s3)
@@ -109,7 +109,7 @@ def main() -> int:
     def s4():
         p = _piece(SizingOptimizationPiece)
         p.results_path = str(OUT["sizing"])
-        o = p.piece_function(SZIn(load_csv=load_csv, scenario_yaml=scenario_yaml, technical_limits_json=tl_json))
+        o = p.piece_function(SZIn(load_csv=load_csv, scenario_yaml=scenario_yaml, technical_limits_json=tl_json, run_id=run_id))
         return o.sized_scenario_yaml
 
     scenario_yaml = run_step("SizingOptimization", s4)
@@ -120,7 +120,7 @@ def main() -> int:
     def s5():
         p = _piece(CatalogRankerPiece)
         p.results_path = str(OUT["ranker"])
-        o = p.piece_function(CRIn(scenario_yaml=scenario_yaml, pv_catalog_json=pv_cat))
+        o = p.piece_function(CRIn(scenario_yaml=scenario_yaml, pv_catalog_json=pv_cat, run_id=run_id))
         return o.catalog_ranked_recommendation_json
 
     ranked = run_step("CatalogRanker", s5)
@@ -131,7 +131,7 @@ def main() -> int:
     def s6():
         p = _piece(SolarSimPiece)
         p.results_path = str(OUT["solar"])
-        o = p.piece_function(SSIn(load_csv=load_csv, scenario_yaml=scenario_yaml))
+        o = p.piece_function(SSIn(load_csv=load_csv, scenario_yaml=scenario_yaml, run_id=run_id))
         return o.virtual_solar_csv
 
     solar_csv = run_step("SolarSim", s6)
@@ -142,7 +142,7 @@ def main() -> int:
     def s7():
         p = _piece(BatteryStrategyOptimizerPiece)
         p.results_path = str(OUT["bstrategy"])
-        o = p.piece_function(BSIn(load_csv=load_csv, scenario_yaml=scenario_yaml))
+        o = p.piece_function(BSIn(load_csv=load_csv, scenario_yaml=scenario_yaml, run_id=run_id))
         return o.battery_strategy_recommendation_json
 
     bstrat = run_step("BatteryStrategyOptimizer", s7)
@@ -159,6 +159,7 @@ def main() -> int:
                 scenario_yaml=scenario_yaml,
                 virtual_solar_csv=solar_csv,
                 battery_strategy_recommendation_json=bstrat,
+                run_id=run_id,
             )
         )
         return o.virtual_battery_soc_csv, o.battery_summary_csv, o.battery_dispatch_csv
@@ -182,6 +183,7 @@ def main() -> int:
                 inverter_catalog_json=inv_cat,
                 battery_catalog_json=bat_cat,
                 catalog_manifest_json=manifest,
+                run_id=run_id,
             )
         )
         return o.report_json
@@ -194,7 +196,7 @@ def main() -> int:
     def s10():
         p = _piece(KPIPiece)
         p.results_path = str(OUT["kpi"])
-        o = p.piece_function(KPIIn(report_json=report_json))
+        o = p.piece_function(KPIIn(report_json=report_json, run_id=run_id))
         return o.kpi_results_csv
 
     kpi_csv = run_step("KPI", s10)
@@ -205,7 +207,7 @@ def main() -> int:
     def s11():
         p = _piece(InvestmentEvalPiece)
         p.results_path = str(OUT["invest"])
-        o = p.piece_function(IEIn(report_json=report_json, kpi_results_csv=kpi_csv))
+        o = p.piece_function(IEIn(report_json=report_json, kpi_results_csv=kpi_csv, run_id=run_id))
         return o.investment_evaluation_csv
 
     inv_csv = run_step("InvestmentEval", s11)
@@ -216,7 +218,7 @@ def main() -> int:
     def s12():
         p = _piece(DashboardPiece)
         p.results_path = str(OUT["dash"])
-        o = p.piece_function(DIn(report_json=report_json, kpi_results_csv=kpi_csv, investment_evaluation_csv=inv_csv))
+        o = p.piece_function(DIn(report_json=report_json, kpi_results_csv=kpi_csv, investment_evaluation_csv=inv_csv, run_id=run_id))
         return o.dashboard_data_json
 
     dash = run_step("Dashboard", s12)
