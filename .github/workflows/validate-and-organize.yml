@@ -60,7 +60,15 @@ jobs:
       - name: Publish images
         env:
           GHCR_USERNAME: ${{ github.actor }}
-        run: domino piece publish-images --registry-token ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          export PIECES_IMAGES_MAP="$(python -c "
+          import json
+          d = json.load(open('.domino/dependencies_map.json'))
+          img = d['group0']['source_image']
+          print(json.dumps({p: img for p in d['group0']['pieces']}))
+          ")"
+          echo "PIECES_IMAGES_MAP=$PIECES_IMAGES_MAP"
+          domino piece publish-images --registry-token ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit files
         id: commit_files
