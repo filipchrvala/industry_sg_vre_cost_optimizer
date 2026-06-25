@@ -8,7 +8,10 @@ import traceback
 import yaml
 from domino.base_piece import BasePiece
 
-from pieces.simulate_import import load_simulate_module
+try:
+    from pieces.simulate_import import load_simulate_module
+except ModuleNotFoundError:
+    from simulate_import import load_simulate_module
 
 from .models import InputModel, OutputModel
 

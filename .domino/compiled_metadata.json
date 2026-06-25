@@ -2,21 +2,12 @@
     "SizingOptimizationPiece": {
         "name": "SizingOptimizationPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "SizingOptimizationPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:chart-line",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:chart-line"
         },
         "description": "Auto/manual sizing for PV and battery",
         "dependencies_group": "0",
@@ -125,21 +116,12 @@
     "KPIPiece": {
         "name": "KPIPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Compute KPIs",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:chart-column",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:chart-column"
         },
         "description": "Compute KPI summary from MRK report",
         "dependencies_group": "0",
@@ -231,21 +213,12 @@
     "UserInputPiece": {
         "name": "UserInputPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "UserInputPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:file-lines",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:file-lines"
         },
         "description": "Validate MRK workflow input files",
         "dependencies_group": "0",
@@ -359,21 +332,12 @@
     "CatalogRankerPiece": {
         "name": "CatalogRankerPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "CatalogRankerPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:list-check",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:list-check"
         },
         "description": "Rank online hardware catalog for selected scenario sizing",
         "dependencies_group": "0",
@@ -471,21 +435,12 @@
     "SolarSimPiece": {
         "name": "SolarSimPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Solar Simulation",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:sun",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:sun"
         },
         "description": "Generate synthetic PV profile for selected sizing",
         "dependencies_group": "0",
@@ -583,21 +538,12 @@
     "TechnicalLimitsPiece": {
         "name": "TechnicalLimitsPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "TechnicalLimitsPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:ruler-combined",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:ruler-combined"
         },
         "description": "Compute technical PV and battery bounds from constraints",
         "dependencies_group": "0",
@@ -700,7 +646,6 @@
     "SimulatePiece": {
         "name": "SimulatePiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [
@@ -708,15 +653,7 @@
         ],
         "style": {
             "node_label": "Simulate MRK Scenario",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:calculator",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:calculator"
         },
         "description": "Run MRK simulation baseline/PV/battery",
         "dependencies_group": "0",
@@ -866,21 +803,12 @@
     "BatterySimPiece": {
         "name": "BatterySimPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Battery Simulation",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:battery-half",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:battery-half"
         },
         "description": "Generate battery SOC timeseries from load and PV profile",
         "dependencies_group": "0",
@@ -1010,21 +938,12 @@
     "DashboardPiece": {
         "name": "DashboardPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Dashboard Data",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:chart-line",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:chart-line"
         },
         "description": "Aggregate MRK report and KPI CSV into dashboard JSON",
         "dependencies_group": "0",
@@ -1133,21 +1052,12 @@
     "BatteryStrategyOptimizerPiece": {
         "name": "BatteryStrategyOptimizerPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Battery Strategy",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:sliders",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:sliders"
         },
         "description": "Create battery dispatch strategy recommendation",
         "dependencies_group": "0",
@@ -1245,21 +1155,12 @@
     "InvestmentEvalPiece": {
         "name": "InvestmentEvalPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "Investment Evaluation",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:coins",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:coins"
         },
         "description": "Compute investment evaluation from simulated KPIs",
         "dependencies_group": "0",
@@ -1362,21 +1263,12 @@
     "CatalogSyncPiece": {
         "name": "CatalogSyncPiece",
         "dependency": {
-            "dockerfile": null,
             "requirements_file": "requirements_0.txt"
         },
         "tags": [],
         "style": {
             "node_label": "CatalogSyncPiece",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:cloud-arrow-down",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
+            "icon_class_name": "fa-solid:cloud-arrow-down"
         },
         "description": "Sync PV and inverter catalogs from online SAM sources",
         "dependencies_group": "0",

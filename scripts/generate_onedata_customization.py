@@ -21,30 +21,38 @@ COMPILED = ROOT / ".domino" / "compiled_metadata.json"
 
 USER_ID = "101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0"
 
-SECRETS_SCHEMA = {
-    "title": "SecretsModel",
-    "type": "object",
-    "properties": {
-        "onedata_onezone_host": {
-            "anyOf": [{"type": "string"}, {"type": "null"}],
-            "default": "data.spice-platform.eu",
-            "description": "OneData Onezone host",
-            "title": "Onedata Onezone Host",
+def _secrets_schema() -> dict:
+    sys.path.insert(0, str(ROOT / "pieces"))
+    from common.onedata_defaults import (
+        DEFAULT_ONEDATA_TOKEN,
+        DEFAULT_ONEZONE_HOST,
+        DEFAULT_OUTPUT_DIR,
+    )
+
+    return {
+        "title": "SecretsModel",
+        "type": "object",
+        "properties": {
+            "onedata_onezone_host": {
+                "anyOf": [{"type": "string"}, {"type": "null"}],
+                "default": DEFAULT_ONEZONE_HOST,
+                "description": "OneData Onezone host (default in code)",
+                "title": "Onedata Onezone Host",
+            },
+            "onedata_token": {
+                "anyOf": [{"type": "string"}, {"type": "null"}],
+                "default": DEFAULT_ONEDATA_TOKEN,
+                "description": "OneData access token (default in code; Domino secrets optional)",
+                "title": "Onedata Token",
+            },
+            "onedata_output_dir": {
+                "anyOf": [{"type": "string"}, {"type": "null"}],
+                "default": DEFAULT_OUTPUT_DIR,
+                "description": "Base dir for per-run outputs: <dir>/<run_id>/<PieceName>/",
+                "title": "Onedata Output Dir",
+            },
         },
-        "onedata_token": {
-            "anyOf": [{"type": "string"}, {"type": "null"}],
-            "default": None,
-            "description": "OneData access token — set in Domino workflow secrets (not in git)",
-            "title": "Onedata Token",
-        },
-        "onedata_output_dir": {
-            "anyOf": [{"type": "string"}, {"type": "null"}],
-            "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-            "description": "Base dir for per-run outputs: <dir>/<run_id>/<PieceName>/",
-            "title": "Onedata Output Dir",
-        },
-    },
-}
+    }
 
 ONEDATA_INPUTS = {
     "load_csv": "onedata:///FilipsSpace/cost_optimizer/inputs/load_and_prices.csv",
@@ -109,7 +117,7 @@ def build(mode: str) -> dict:
         if not entry:
             continue
         entry["source_image"] = source_image
-        entry["secrets_schema"] = SECRETS_SCHEMA
+        entry["secrets_schema"] = _secrets_schema()
         meta = compiled.get(piece_name, {})
         if meta.get("input_schema"):
             entry["input_schema"] = meta["input_schema"]

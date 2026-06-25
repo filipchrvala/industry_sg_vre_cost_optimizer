@@ -9,6 +9,8 @@ from pathlib import Path
 _SIMULATE_MODULE_CANDIDATES = (
     "pieces.SimulateMRKScenarioPiece.piece",
     "pieces.SimulatePiece.piece",
+    "SimulateMRKScenarioPiece.piece",
+    "SimulatePiece.piece",
 )
 
 
