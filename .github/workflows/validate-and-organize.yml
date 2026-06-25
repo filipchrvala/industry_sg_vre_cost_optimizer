@@ -42,6 +42,17 @@ jobs:
 
       - name: Run organize and build images
         run: |
+          python -c "
+          from pathlib import Path
+          import tomli
+          p = Path('config.toml')
+          b = p.read_bytes()
+          if b.startswith(b'\xef\xbb\xbf'):
+              p.write_bytes(b[3:])
+              print('Removed UTF-8 BOM from config.toml')
+          tomli.load(p.open('rb'))
+          print('config.toml parses OK')
+          "
           domino piece organize --build-images --source-url=https://github.com/${{ github.repository }}
 
       - name: Publish images
