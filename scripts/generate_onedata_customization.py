@@ -16,7 +16,9 @@ from sync_test_customization import NODE_PIECES, _upstream_id, _short_label, nor
 CUSTOM = ROOT / "Test.customization"
 OUT_ONEDATA = ROOT / "test_cost_optimizer_onedata.customization"
 OUT_LOCAL = ROOT / "test_cost_optimizer_local.customization"
+OUT_SPICE = ROOT / "test_cost_optimizer_onedata.spice.customization"
 CONFIG = ROOT / "config.toml"
+CONFIG_SPICE = ROOT / "config.spice.toml"
 COMPILED = ROOT / ".domino" / "compiled_metadata.json"
 
 USER_ID = "101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0"
@@ -67,12 +69,15 @@ LOCAL_INPUTS = {
 }
 
 
-def _version_image() -> str:
-    ver = "0.1.34"
-    if CONFIG.is_file():
-        m = re.search(r'VERSION\s*=\s*"([^"]+)"', CONFIG.read_text(encoding="utf-8"))
+def _version_image(*, spice: bool = False) -> str:
+    cfg = CONFIG_SPICE if spice and CONFIG_SPICE.is_file() else CONFIG
+    ver = "0.1.39"
+    if cfg.is_file():
+        m = re.search(r'VERSION\s*=\s*"([^"]+)"', cfg.read_text(encoding="utf-8"))
         if m:
             ver = m.group(1)
+    if spice:
+        return f"harbor.testbed.spice-platform.eu/partner/uc3/industry_sg_vre_cost_optimizer:{ver}-group0"
     return f"ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:{ver}-group0"
 
 
@@ -106,12 +111,16 @@ def _apply_inputs(data: dict, user_inputs: dict[str, str]) -> None:
         }
 
 
-def build(mode: str) -> dict:
+def build(mode: str, *, spice: bool = False) -> dict:
     subprocess.run([sys.executable, str(ROOT / "scripts" / "sync_test_customization.py")], check=True)
     data = json.loads(CUSTOM.read_text(encoding="utf-8"))
     compiled = json.loads(COMPILED.read_text(encoding="utf-8")) if COMPILED.is_file() else {}
 
-    source_image = _version_image()
+    source_image = _version_image(spice=spice)
+    gitlab_base = "https://gitlab.spice-platform.eu/use-cases/uc3/UC3.2_Industry_Sg_Vre_Cost_Optimizer"
+    github_base = "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer"
+    repo_base = gitlab_base if spice else github_base
+
     for node_id, piece_name in NODE_PIECES.items():
         entry = data.get("workflowPieces", {}).get(node_id)
         if not entry:
@@ -123,10 +132,8 @@ def build(mode: str) -> dict:
             entry["input_schema"] = meta["input_schema"]
         if meta.get("output_schema"):
             entry["output_schema"] = meta["output_schema"]
-        entry["repository_url"] = "https://github.com/filipchrvala/industry_sg_vre_cost_optimizer"
-        entry["source_url"] = (
-            f"https://github.com/filipchrvala/industry_sg_vre_cost_optimizer/tree/main/pieces/{piece_name}"
-        )
+        entry["repository_url"] = repo_base
+        entry["source_url"] = f"{repo_base}/tree/main/pieces/{piece_name}"
 
     _wire_run_id(data)
     normalize_upstream_ids_and_edges(data)
@@ -144,6 +151,10 @@ def main() -> None:
     onedata = build("onedata")
     OUT_ONEDATA.write_text(json.dumps(onedata, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {OUT_ONEDATA}")
+
+    spice = build("onedata", spice=True)
+    OUT_SPICE.write_text(json.dumps(spice, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Wrote {OUT_SPICE} (Harbor images for GitLab)")
 
     local = build("local")
     OUT_LOCAL.write_text(json.dumps(local, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
