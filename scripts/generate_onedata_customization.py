@@ -15,10 +15,8 @@ from sync_test_customization import NODE_PIECES, _upstream_id, _short_label, nor
 
 CUSTOM = ROOT / "Test.customization"
 OUT_ONEDATA = ROOT / "test_cost_optimizer_onedata.customization"
-OUT_LOCAL = ROOT / "test_cost_optimizer_local.customization"
 OUT_SPICE = ROOT / "test_cost_optimizer_onedata.spice.customization"
 CONFIG = ROOT / "config.toml"
-CONFIG_SPICE = ROOT / "config.spice.toml"
 COMPILED = ROOT / ".domino" / "compiled_metadata.json"
 
 USER_ID = "101_6c7d1d1b-ebc0-41cf-94af-98c9378610e0"
@@ -70,10 +68,9 @@ LOCAL_INPUTS = {
 
 
 def _version_image(*, spice: bool = False) -> str:
-    cfg = CONFIG_SPICE if spice and CONFIG_SPICE.is_file() else CONFIG
-    ver = "0.1.39"
-    if cfg.is_file():
-        m = re.search(r'VERSION\s*=\s*"([^"]+)"', cfg.read_text(encoding="utf-8"))
+    ver = "0.1.40"
+    if CONFIG.is_file():
+        m = re.search(r'VERSION\s*=\s*"([^"]+)"', CONFIG.read_text(encoding="utf-8"))
         if m:
             ver = m.group(1)
     if spice:
@@ -155,10 +152,6 @@ def main() -> None:
     spice = build("onedata", spice=True)
     OUT_SPICE.write_text(json.dumps(spice, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {OUT_SPICE} (Harbor images for GitLab)")
-
-    local = build("local")
-    OUT_LOCAL.write_text(json.dumps(local, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {OUT_LOCAL}")
 
 
 if __name__ == "__main__":

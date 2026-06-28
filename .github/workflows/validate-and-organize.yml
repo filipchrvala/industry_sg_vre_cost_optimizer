@@ -8,7 +8,7 @@ on:
       - "config.toml"
       - "pieces/**"
       - "dependencies/**"
-      - "scripts/verify_domino_imports.py"
+      - ".github/workflows/validate-and-organize.yml"
 
 permissions:
   contents: write
@@ -17,6 +17,7 @@ permissions:
 jobs:
   validate-and-organize:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -32,7 +33,7 @@ jobs:
       - name: Pip install packages
         run: |
           python -m pip install -U pip
-          pip install --no-cache-dir domino-py[cli]
+          pip install --no-cache-dir domino-py[cli] tomli
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -41,7 +42,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run organize and build images
+      - name: Normalize config.toml (strip UTF-8 BOM)
         run: |
           python -c "
           from pathlib import Path
@@ -54,8 +55,50 @@ jobs:
           tomli.load(p.open('rb'))
           print('config.toml parses OK')
           "
+
+      - name: Run organize and build images
+        env:
+          DOCKER_CLIENT_TIMEOUT: "3600"
+          COMPOSE_HTTP_TIMEOUT: "3600"
+        run: |
           python scripts/verify_domino_imports.py
           domino piece organize --build-images --source-url=https://github.com/${{ github.repository }}
+
+      - name: Retag image for GHCR
+        run: |
+          python <<'PY'
+          import json
+          import re
+          import subprocess
+          from pathlib import Path
+
+          import tomli
+
+          version = tomli.load(open("config.toml", "rb"))["repository"]["VERSION"]
+          ghcr = f"ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:{version}-group0"
+
+          dm_path = Path(".domino/dependencies_map.json")
+          dm = json.loads(dm_path.read_text(encoding="utf-8"))
+          built = dm["group0"]["source_image"]
+          print(f"Organize built: {built}")
+          print(f"GHCR target:  {ghcr}")
+
+          if built != ghcr:
+              subprocess.run(["docker", "tag", built, ghcr], check=True)
+              dm["group0"]["source_image"] = ghcr
+              dm_path.write_text(json.dumps(dm, indent=4) + "\n", encoding="utf-8")
+
+          meta = Path(".domino/compiled_metadata.json")
+          if meta.is_file():
+              text = meta.read_text(encoding="utf-8")
+              text = text.replace(built, ghcr)
+              text = re.sub(
+                  r"ghcr\.io/harbor\.testbed\.spice-platform\.eu/partner/uc3/industry_sg_vre_cost_optimizer",
+                  "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer",
+                  text,
+              )
+              meta.write_text(text, encoding="utf-8")
+          PY
 
       - name: Publish images
         run: |
@@ -88,4 +131,12 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: domino piece release
+        run: |
+          VERSION=$(python -c "import tomli; print(tomli.load(open('config.toml','rb'))['repository']['VERSION'])")
+          git fetch --tags origin
+          if git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
+            echo "Release tag ${VERSION} already exists — skipping domino piece release"
+            echo "Docker image ${VERSION}-group0 was still published above."
+          else
+            domino piece release
+          fi
