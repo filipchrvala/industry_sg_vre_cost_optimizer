@@ -24,6 +24,22 @@ Domino piece repository for the MRK cost-optimizer workflow (OneData I/O, PV/bat
 3. OneData inputs under `onedata:///FilipsSpace/cost_optimizer/inputs/`.
 4. Optional secrets: `onedata_token`, `onedata_onezone_host`, `onedata_output_dir`.
 
+## GitLab CI / Harbor
+
+Pipeline runs on push to `main` when `config.toml` or `.gitlab-ci.yml` changes.
+
+Set **Settings → CI/CD → Variables** (mask secrets):
+
+| Variable | Value |
+|----------|--------|
+| `CI_PUSH_TOKEN` | Project access token (`write_repository`) |
+| `CI_RELEASE_TOKEN` | Project access token (`api`) |
+| `CONTAINER_REGISTRY_PASSWORD` | Harbor password (from vault) |
+
+Defaults in `.gitlab-ci.yml`: `CONTAINER_REGISTRY=harbor.testbed.spice-platform.eu`, `CONTAINER_REGISTRY_USERNAME=partner`.
+
+Copy the same Harbor/token variables from UC3.3 project if this pipeline fails on login.
+
 ## Regenerate workflow exports
 
 ```powershell

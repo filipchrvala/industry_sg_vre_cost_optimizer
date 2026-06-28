@@ -24,6 +24,8 @@ semgrep-sast:
     DOCKER_HOST: unix:///run/podman/podman.sock
     DOMINO_GIT_PROVIDER: gitlab
     GITLAB_TOKEN: $CI_RELEASE_TOKEN
+    CONTAINER_REGISTRY: harbor.testbed.spice-platform.eu
+    CONTAINER_REGISTRY_USERNAME: partner
   tags:
     - k8s_shared_testbed
   before_script:
@@ -40,16 +42,21 @@ semgrep-sast:
       for i in $(seq 1 30); do [ -S /run/podman/podman.sock ] && break; sleep 1; done
       if [ ! -S /run/podman/podman.sock ]; then
         echo "ERROR: podman API socket /run/podman/podman.sock never appeared." >&2
+        echo "--- /tmp/podman-service.log ---" >&2; cat /tmp/podman-service.log >&2 || true
         exit 1
       fi
     - DOCKER_HOST=unix:///run/podman/podman.sock podman version
+    - |
+      : "${CONTAINER_REGISTRY:?Set CI/CD variable CONTAINER_REGISTRY (default: harbor.testbed.spice-platform.eu)}"
+      : "${CONTAINER_REGISTRY_USERNAME:?Set CI/CD variable CONTAINER_REGISTRY_USERNAME (default: partner)}"
+      : "${CONTAINER_REGISTRY_PASSWORD:?Set CI/CD variable CONTAINER_REGISTRY_PASSWORD (Harbor robot password, masked)}"
     - echo "$CONTAINER_REGISTRY_PASSWORD" | podman login "$CONTAINER_REGISTRY" -u "$CONTAINER_REGISTRY_USERNAME" --password-stdin
     - pip install --no-cache-dir domino-py-spice[cli]
     - git config --global user.email "gitlab-ci-bot@users.noreply.gitlab.com"
     - git config --global user.name "gitlab-ci-bot"
     - |
-      : "${CI_PUSH_TOKEN:?CI_PUSH_TOKEN is empty}"
-      : "${CI_RELEASE_TOKEN:?CI_RELEASE_TOKEN is empty}"
+      : "${CI_PUSH_TOKEN:?CI_PUSH_TOKEN is empty. Project Access Token with write_repository scope — Settings → CI/CD → Variables.}"
+      : "${CI_RELEASE_TOKEN:?CI_RELEASE_TOKEN is empty. Project Access Token with api scope.}"
     - git remote set-url origin "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
 
 validate-and-organize:
@@ -59,6 +66,7 @@ validate-and-organize:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
         - config.toml
+        - .gitlab-ci.yml
     - when: never
   script:
     - |
@@ -71,6 +79,7 @@ validate-and-organize:
           p.write_bytes(b[3:])
       tomli.load(p.open('rb'))
       "
+    - python scripts/verify_domino_imports.py
     - domino piece-repository organize --build-images --source-url="${CI_PROJECT_URL}"
     - DOCKER_CLIENT_TIMEOUT=600 domino piece-repository publish-images --registry-username "$CONTAINER_REGISTRY_USERNAME" --registry-token "$CONTAINER_REGISTRY_PASSWORD"
     - |
