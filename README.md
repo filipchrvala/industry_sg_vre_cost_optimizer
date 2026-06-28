@@ -26,19 +26,32 @@ Domino piece repository for the MRK cost-optimizer workflow (OneData I/O, PV/bat
 
 ## GitLab CI / Harbor
 
-Pipeline runs on push to `main` when `config.toml` or `.gitlab-ci.yml` changes.
+Pipeline runs on push to `main` when `config.toml` changes (same as UC3.3).
 
-Set **Settings → CI/CD → Variables** (mask secrets):
+Set **Settings → CI/CD → Variables** (mask secrets) — **all five** are required:
 
-| Variable | Value |
-|----------|--------|
-| `CI_PUSH_TOKEN` | Project access token (`write_repository`) |
-| `CI_RELEASE_TOKEN` | Project access token (`api`) |
-| `CONTAINER_REGISTRY_PASSWORD` | Harbor password (from vault) |
+| Variable | Description |
+|----------|-------------|
+| `CI_PUSH_TOKEN` | Project access token (`write_repository` + `api`) |
+| `CI_RELEASE_TOKEN` | Same token (`api`) |
+| `CONTAINER_REGISTRY` | `harbor.testbed.spice-platform.eu` |
+| `CONTAINER_REGISTRY_USERNAME` | e.g. `partner` |
+| `CONTAINER_REGISTRY_PASSWORD` | Harbor password (SPICE vault) |
 
-Defaults in `.gitlab-ci.yml`: `CONTAINER_REGISTRY=harbor.testbed.spice-platform.eu`, `CONTAINER_REGISTRY_USERNAME=partner`.
+UC3.3 already has these; UC3.2 is a **separate GitLab project** and needs the same setup once.
 
-Copy the same Harbor/token variables from UC3.3 project if this pipeline fails on login.
+Automated setup (PowerShell, do not paste secrets into chat):
+
+```powershell
+cd C:\Users\NTB\Domino\industry_sg_vre_workflow
+$env:GITLAB_TOKEN = "glpat-..."      # Maintainer, api
+$env:HARBOR_PASSWORD = "..."         # same as UC3.3
+powershell -ExecutionPolicy Bypass -File scripts\setup_uc32_gitlab_ci.ps1 -TriggerPipeline
+```
+
+Check variables: `scripts\check_uc33_gitlab_ci.ps1 -ProjectId 91 -ProjectPath use-cases/uc3/UC3.2_Industry_Sg_Vre_Cost_Optimizer`
+
+Delete failed pipeline runs: `scripts\delete_uc32_failed_pipelines.ps1` (needs Maintainer).
 
 ## Regenerate workflow exports
 
