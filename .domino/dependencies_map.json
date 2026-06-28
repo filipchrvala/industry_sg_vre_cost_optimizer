@@ -19,10 +19,10 @@
             "CatalogSyncPiece"
         ],
         "secrets": [
-            "onedata_onezone_host",
+            "onedata_token",
             "onedata_output_dir",
-            "onedata_token"
+            "onedata_onezone_host"
         ],
-        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.41-group0"
+        "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.42-group0"
     }
 }
