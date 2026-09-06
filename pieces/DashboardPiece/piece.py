@@ -100,8 +100,23 @@ class DashboardPiece(BasePiece):
                     (c for c in prof.columns if "optim" in c.lower() and "kwh" in c.lower()),
                     "optimized_energy_kwh_interval",
                 )
+                # A year at 15-minute resolution is 35 000 points per series, which
+                # made this payload several megabytes and is finer than any chart
+                # can show. Daily means keep the seasonal shape; the untouched
+                # interval data stays in the profile CSV for anyone who needs it.
+                if dt_col in prof.columns:
+                    stamps = pd.to_datetime(prof[dt_col], errors="coerce")
+                    if stamps.notna().any() and len(prof) > 800:
+                        prof = (
+                            prof.assign(_day=stamps.dt.floor("D"))
+                            .groupby("_day", as_index=False)
+                            .mean(numeric_only=True)
+                            .rename(columns={"_day": dt_col})
+                        )
+
                 chart = {
                     "title": "Priebeh spotreby energie: baseline vs FVE+batéria",
+                    "resolution": "daily_mean",
                     "x": prof[dt_col].astype(str).tolist() if dt_col in prof.columns else [],
                     "series": [
                         {

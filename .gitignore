@@ -11,3 +11,4 @@ docker_battery_test/
 user_input/
 *.docx
 !docs/*.docx
+.local_run/

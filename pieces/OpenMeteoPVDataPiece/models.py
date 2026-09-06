@@ -60,6 +60,16 @@ class InputModel(BaseModel):
         title="Longitude",
         description="Fallback longitude if scenario_yaml is missing site.longitude.",
     )
+    load_csv: str | None = Field(
+        default=None,
+        title="Load profile CSV",
+        description=(
+            "Metered load profile. When set, the weather window is taken from its "
+            "first and last timestamp, so production is modelled over exactly the "
+            "period the investment case is evaluated on, and start_date / end_date "
+            "below are ignored."
+        ),
+    )
     start_date: str = Field(
         default="2026-01-01",
         title="Start Date",

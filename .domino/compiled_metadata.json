@@ -1864,6 +1864,19 @@
                     "title": "Longitude",
                     "type": "number"
                 },
+                "load_csv": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Metered load profile. When set, the weather window is taken from its first and last timestamp, so production is modelled over exactly the period the investment case is evaluated on, and start_date / end_date below are ignored.",
+                    "title": "Load profile CSV"
+                },
                 "start_date": {
                     "default": "2026-01-01",
                     "description": "First day of the requested period in YYYY-MM-DD format.",
@@ -2955,6 +2968,11 @@
                     "title": "Weather Csv Path",
                     "type": "string"
                 },
+                "training_base_csv": {
+                    "description": "Preprocessed and feature-selected dataset the correction model trains on. Its feature columns are passed through untouched so the model sees the same inputs at serving time; only the PVOUT target is replaced where a ground measurement exists.",
+                    "title": "Training Base Csv",
+                    "type": "string"
+                },
                 "scenario_yaml": {
                     "description": "Scenario YAML providing site.latitude / site.longitude and the PV array.",
                     "title": "Scenario Yaml",
@@ -2975,6 +2993,7 @@
             },
             "required": [
                 "weather_csv_path",
+                "training_base_csv",
                 "scenario_yaml"
             ],
             "title": "InputModel",

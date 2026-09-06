@@ -367,7 +367,13 @@ def render_forecast_panel(calibration: dict[str, Any] | None) -> str:
 
 
 def render_equipment(ranking: dict[str, Any] | None) -> str:
-    items = (ranking or {}).get("top") or (ranking or {}).get("ranked") or []
+    ranking = ranking or {}
+    items = (
+        ranking.get("top_recommendations")
+        or ranking.get("top")
+        or ranking.get("ranked")
+        or []
+    )
     if not items:
         return ""
     head = (

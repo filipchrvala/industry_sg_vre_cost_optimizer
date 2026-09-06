@@ -202,18 +202,35 @@ def available_window(*, probe_days: int = 45, timeout: int = 20) -> tuple[date, 
 
     session = requests.Session()
     today = datetime.utcnow().date()
-    found: list[date] = []
-    for offset in range(probe_days):
+
+    def exists(offset: int) -> bool:
         day = today - timedelta(days=offset)
         try:
-            resp = session.get(f"{SHMU_BASE_URL}/{day:%Y%m%d}/", timeout=timeout)
-            if resp.status_code == 200:
-                found.append(day)
+            return session.get(f"{SHMU_BASE_URL}/{day:%Y%m%d}/", timeout=timeout).status_code == 200
         except Exception:
-            continue
-    if not found:
+            return False
+
+    # The window is contiguous, so probing every day costs 45 sequential round
+    # trips to learn two dates. Find the newest published day, then binary search
+    # for the far edge: about eight requests instead of forty-five.
+    newest = next((offset for offset in range(4) if exists(offset)), None)
+    if newest is None:
         return None
-    return min(found), max(found)
+
+    low, high = newest, newest
+    step = 1
+    while high + step < probe_days and exists(high + step):
+        high += step
+        step *= 2
+    lo, hi = high, min(high + step, probe_days)
+    while lo + 1 < hi:
+        mid = (lo + hi) // 2
+        if exists(mid):
+            lo = mid
+        else:
+            hi = mid
+
+    return today - timedelta(days=lo), today - timedelta(days=newest)
 
 
 def bias_report(modelled, measured) -> dict:

@@ -73,6 +73,7 @@ class ShmuCalibrationPiece(BasePiece):
             _run_id = od.resolve_run_id(input_data, secrets_data, generate=False)
 
         weather_path = Path(str(input_data.weather_csv_path))
+        base_path = Path(str(input_data.training_base_csv))
         scenario_path = Path(str(input_data.scenario_yaml))
         out_dir = Path(self.results_path or scenario_path.parent)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -93,6 +94,8 @@ class ShmuCalibrationPiece(BasePiece):
         try:
             if not weather_path.is_file():
                 raise FileNotFoundError(f"Weather CSV not found: {weather_path}")
+            if not base_path.is_file():
+                raise FileNotFoundError(f"Training base CSV not found: {base_path}")
 
             cfg = load_scenario_yaml(scenario_path) if scenario_path.is_file() else {}
             lat, lon = site_location(cfg)
@@ -112,7 +115,8 @@ class ShmuCalibrationPiece(BasePiece):
             if not bool(input_data.enabled):
                 return self._finish(
                     self._write_skip(
-                        report, calibration_json, training_csv, "disabled_by_input", _log
+                        report, calibration_json, training_csv, "disabled_by_input", _log,
+                        base_path,
                     ),
                     calibration_json,
                     training_csv,
@@ -126,6 +130,7 @@ class ShmuCalibrationPiece(BasePiece):
                     self._write_skip(
                         report, calibration_json, training_csv,
                         "scenario has no site.latitude / site.longitude", _log,
+                        base_path,
                     ),
                     calibration_json, training_csv, secrets_data, _stage, _run_id,
                 )
@@ -140,6 +145,7 @@ class ShmuCalibrationPiece(BasePiece):
                         f"no SHMU radiation station within "
                         f"{input_data.max_station_distance_km:.0f} km of the site",
                         _log,
+                        base_path,
                     ),
                     calibration_json, training_csv, secrets_data, _stage, _run_id,
                 )
@@ -160,6 +166,7 @@ class ShmuCalibrationPiece(BasePiece):
                     self._write_skip(
                         report, calibration_json, training_csv,
                         "SHMU open data server returned no usable days", _log,
+                        base_path,
                     ),
                     calibration_json, training_csv, secrets_data, _stage, _run_id,
                 )
@@ -172,6 +179,7 @@ class ShmuCalibrationPiece(BasePiece):
                     self._write_skip(
                         report, calibration_json, training_csv,
                         "no measured global radiation returned for the window", _log,
+                        base_path,
                     ),
                     calibration_json, training_csv, secrets_data, _stage, _run_id,
                 )
@@ -193,6 +201,7 @@ class ShmuCalibrationPiece(BasePiece):
                         f"({bias.get('daylight_steps', 0)} daylight steps, "
                         f"need {MIN_DAYLIGHT_STEPS})",
                         _log,
+                        base_path,
                     ),
                     calibration_json, training_csv, secrets_data, _stage, _run_id,
                 )
@@ -212,14 +221,17 @@ class ShmuCalibrationPiece(BasePiece):
             )
 
             rows = self._build_training_rows(
-                weather, measured_grid, cfg, lat, lon, installed_kwp or 0.0, tilt or 30.0
+                base_path, weather, measured_grid, cfg, lat, lon, installed_kwp or 0.0, tilt or 30.0
             )
             report["training_rows"] = int(len(rows))
             if len(rows):
-                rows.to_csv(training_csv, index=False, sep=";")
+                rows.to_csv(training_csv, index=False)
                 _log(f"Wrote measurement-based training target: {training_csv} ({len(rows)} rows)")
             else:
-                training_csv.write_text("", encoding="utf-8")
+                report["correction_stage"] = (
+                    "no-op: measurement did not overlap the analysed period"
+                )
+                training_csv.write_bytes(base_path.read_bytes())
 
             calibration_json.write_text(
                 json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -279,6 +291,7 @@ class ShmuCalibrationPiece(BasePiece):
 
     @staticmethod
     def _build_training_rows(
+        base_path: Path,
         weather: pd.DataFrame,
         measured: pd.Series,
         cfg: dict,
@@ -287,26 +300,50 @@ class ShmuCalibrationPiece(BasePiece):
         installed_kwp: float,
         tilt_deg: float,
     ) -> pd.DataFrame:
-        """Recompute PVOUT from measured irradiance over the overlapping window.
+        """Replace the PVOUT target with production implied by ground measurement.
 
-        The feature columns stay exactly as Open-Meteo produced them, so the
-        correction model sees the same inputs it will see at serving time. Only
-        the target changes: it now reflects what the plant would have produced
-        under the irradiance that was actually measured on the ground.
+        The feature columns of the preprocessed dataset are passed through
+        untouched, so the correction model sees exactly the inputs it will see at
+        serving time. Only the target changes, to what the plant would have
+        produced under the irradiance measured on the ground. Rows outside the
+        measured window are dropped: an unlabelled row teaches nothing and would
+        pull the correction back toward the model it is meant to correct.
         """
-        overlap = weather.index.intersection(measured.index)
-        if len(overlap) == 0 or installed_kwp <= 0:
+        base = pd.read_csv(base_path)
+        if "datetime" not in base.columns or installed_kwp <= 0:
+            return pd.DataFrame()
+
+        base = base.copy()
+        base["datetime"] = pd.to_datetime(base["datetime"], errors="coerce")
+        base = base.dropna(subset=["datetime"]).set_index("datetime").sort_index()
+
+        overlap = base.index.intersection(measured.index)
+        if len(overlap) == 0:
             return pd.DataFrame()
 
         spec = pv_model.array_spec_from_scenario(
             cfg, installed_kwp=installed_kwp, tilt_deg=tilt_deg
         )
-        sub = weather.loc[overlap].copy()
+        sub = base.loc[overlap].copy()
         measured_ghi = measured.loc[overlap]
 
         # Timestamps are local wall clock; recover the offset the weather file
         # was written with so solar geometry stays consistent with the source.
         offset_seconds = ShmuCalibrationPiece._infer_utc_offset(sub.index, lat, lon)
+
+        def _column(frame: pd.DataFrame, name: str, fallback: float) -> pd.Series:
+            if name in frame.columns:
+                return pd.to_numeric(frame[name], errors="coerce").fillna(fallback)
+            if name in weather.columns:
+                return (
+                    pd.to_numeric(weather[name], errors="coerce")
+                    .reindex(frame.index)
+                    .fillna(fallback)
+                )
+            return pd.Series(fallback, index=frame.index)
+
+        temps = _column(sub, "TEMP", 15.0)
+        winds = _column(sub, "WS", 1.0)
 
         targets = []
         for stamp, ghi in measured_ghi.items():
@@ -315,8 +352,8 @@ class ShmuCalibrationPiece(BasePiece):
                 ghi=float(ghi),
                 dni=None,
                 dif=None,
-                temp_c=float(sub.at[stamp, "TEMP"]) if "TEMP" in sub.columns else 15.0,
-                wind_ms=float(sub.at[stamp, "WS"]) if "WS" in sub.columns else 1.0,
+                temp_c=float(temps.at[stamp]),
+                wind_ms=float(winds.at[stamp]),
                 lat=lat,
                 lon=lon,
                 spec=spec,
@@ -324,8 +361,9 @@ class ShmuCalibrationPiece(BasePiece):
             )
             targets.append(res["pvout_kw"])
 
-        sub["PVOUT_MODELLED"] = sub["PVOUT"] if "PVOUT" in sub.columns else 0.0
-        sub["GHI_MEASURED"] = measured_ghi.values
+        if "PVOUT" in sub.columns:
+            sub["PVOUT_MODELLED"] = sub["PVOUT"]
+        sub["GHI_MEASURED"] = measured_ghi.to_numpy()
         sub["PVOUT"] = targets
         return sub.reset_index()
 
@@ -352,15 +390,34 @@ class ShmuCalibrationPiece(BasePiece):
         return best_offset
 
     def _write_skip(
-        self, report: dict, calibration_json: Path, training_csv: Path, reason: str, log
+        self,
+        report: dict,
+        calibration_json: Path,
+        training_csv: Path,
+        reason: str,
+        log,
+        base_path: Path | None = None,
     ) -> OutputModel:
+        """Fall back to the modelled series without breaking the chain.
+
+        The correction stage still needs a dataset to train on, and Domino has no
+        clean way to skip a node at runtime. Passing the modelled PVOUT through
+        unchanged makes the correction a no-op, which is the right answer when
+        there is nothing measured to correct toward. The report and the dashboard
+        both say so rather than implying the yield was validated.
+        """
         report["calibration_available"] = False
         report["skip_reason"] = reason
         report["irradiance_scale_factor"] = 1.0
+        report["correction_stage"] = "no-op: trained on the modelled series"
         calibration_json.write_text(
             json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        training_csv.write_text("", encoding="utf-8")
+
+        if base_path is not None and base_path.is_file():
+            training_csv.write_bytes(base_path.read_bytes())
+        else:
+            training_csv.write_text("", encoding="utf-8")
         log(f"Calibration skipped: {reason}")
         self.display_result = {"file_type": "json", "file_path": str(calibration_json)}
         return OutputModel(

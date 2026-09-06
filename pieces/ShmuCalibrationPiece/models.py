@@ -10,6 +10,14 @@ class InputModel(RunIdInputMixin):
     weather_csv_path: str = Field(
         description="Open-Meteo dataset CSV produced by OpenMeteoPVDataPiece."
     )
+    training_base_csv: str = Field(
+        description=(
+            "Preprocessed and feature-selected dataset the correction model trains "
+            "on. Its feature columns are passed through untouched so the model sees "
+            "the same inputs at serving time; only the PVOUT target is replaced "
+            "where a ground measurement exists."
+        )
+    )
     scenario_yaml: str = Field(
         description="Scenario YAML providing site.latitude / site.longitude and the PV array."
     )

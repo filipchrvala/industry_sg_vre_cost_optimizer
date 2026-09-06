@@ -68,7 +68,14 @@ def _technical_bounds_kwp_kwh(cfg: dict[str, Any], df: pd.DataFrame, dt_h: float
     inst = c.get("installation") or {}
     mount = str(inst.get("mount_type", "roof")).lower()
     kwp_per_m2 = float(lay.get("kwp_per_m2_roof", 0.18))
-    kwh_per_m2 = float(lay.get("kwh_per_m2_battery_area", 0.25))
+    # Energy density of an installed C&I battery system per square metre of
+    # allocated site area. The previous default of 0.25 kWh/m2 was low by more
+    # than two orders of magnitude: catalog cabinets run 42-95 kWh/m2 of device
+    # footprint and containers exceed 130, so any site with a stated battery area
+    # was capped at a few tens of kWh and the optimiser could never return a
+    # battery. 30 kWh/m2 is the cabinet figure derated for access aisles, fire
+    # separation and the power conversion system.
+    kwh_per_m2 = float(lay.get("kwh_per_m2_battery_area", 30.0))
 
     area_pv = ground if mount == "ground" and ground > 1e-6 else roof
     max_kwp = area_pv * kwp_per_m2 if area_pv > 1e-6 else 0.0

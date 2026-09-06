@@ -87,16 +87,21 @@ WORKFLOW: dict[str, dict[str, Any]] = {
         "col": 1,
         "inputs": {
             "scenario_yaml": _upstream("UserInputPiece", "scenario_yaml"),
+            "load_csv": _upstream("UserInputPiece", "load_csv"),
             "time_resolution": "auto",
-            "output_mode": "file",
+            "output_mode": "batch_sample",
             "output_format": "csv",
         },
     },
+    # Placed after feature selection: the correction model has to train on the
+    # same preprocessed columns it will be served, with only the target swapped
+    # for one derived from ground measurement.
     "ShmuCalibrationPiece": {
         "row": 4,
-        "col": 2,
+        "col": 5,
         "inputs": {
             "weather_csv_path": _upstream("OpenMeteoPVDataPiece", "file_path"),
+            "training_base_csv": _upstream("PvoutModelFeatureSelectPiece", "data_path"),
             "scenario_yaml": _upstream("UserInputPiece", "scenario_yaml"),
             "run_id": _upstream("UserInputPiece", "run_id"),
         },
@@ -107,7 +112,7 @@ WORKFLOW: dict[str, dict[str, Any]] = {
         "inputs": {
             "data_path": _upstream("OpenMeteoPVDataPiece", "file_path"),
             "target_column": _upstream("OpenMeteoPVDataPiece", "target_column"),
-            "preprocessing_option": "pvout",
+            "preprocessing_option": "prediction",
             "keep_datetime": True,
         },
     },
@@ -118,7 +123,8 @@ WORKFLOW: dict[str, dict[str, Any]] = {
             "data_path": _upstream("DataPreprocessingPiece", "data_path"),
             "feature_columns": _upstream("DataPreprocessingPiece", "feature_columns"),
             "target_column": _upstream("DataPreprocessingPiece", "target_column"),
-            "problem_type": "pvout",
+            "problem_type": "pvout_prediction",
+            "available_models": ["xgb_regressor_model", "linear_regression_model"],
         },
     },
     "DataNormalizationPiece": {
@@ -148,7 +154,7 @@ WORKFLOW: dict[str, dict[str, Any]] = {
             "data_path": _upstream("PvoutModelFeatureSelectPiece", "data_path"),
             "feature_columns": _upstream("PvoutModelFeatureSelectPiece", "feature_columns"),
             "target_column": _upstream("PvoutModelFeatureSelectPiece", "target_column"),
-            "model_type": "xgboost",
+            "model_type": "xgb_regressor_model",
         },
     },
     "PVOUTErrorCorrectionModelTrainPiece": {
@@ -162,7 +168,7 @@ WORKFLOW: dict[str, dict[str, Any]] = {
             "baseline_model_path": _upstream("PVOUTPredictionModelTrainPiece", "model_path"),
             "feature_columns": _upstream("PVOUTPredictionModelTrainPiece", "feature_columns"),
             "target_column": _upstream("PVOUTPredictionModelTrainPiece", "target_column"),
-            "model_type": "xgboost",
+            "model_type": "error_correction_xgb_regressor_model",
         },
     },
     "PvoutStagedInferenceSpecPiece": {

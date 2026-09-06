@@ -198,6 +198,34 @@ def _build_records(
     return records
 
 
+def _window_from_load_csv(path: str | None) -> tuple[str, str] | None:
+    """Read the analysed period straight off the metered load profile.
+
+    Weather over a different period than the load would pair January production
+    with July consumption, which quietly destroys the self-consumption estimate
+    the whole investment case rests on. Returns None when the file is absent or
+    unreadable, leaving the explicit dates in charge.
+    """
+    if not path:
+        return None
+    p = Path(str(path))
+    if not p.is_file():
+        return None
+    try:
+        import pandas as pd
+
+        frame = pd.read_csv(p, sep=None, engine="python", encoding="utf-8-sig")
+        frame.columns = [c.strip().lower().replace(" ", "_") for c in frame.columns]
+        if "datetime" not in frame.columns:
+            return None
+        stamps = pd.to_datetime(frame["datetime"], errors="coerce").dropna()
+        if stamps.empty:
+            return None
+        return stamps.min().strftime("%Y-%m-%d"), stamps.max().strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
 class OpenMeteoPVDataPiece(BasePiece):
     def piece_function(self, input_data: InputModel, secrets_data=None):
         try:
@@ -259,14 +287,29 @@ class OpenMeteoPVDataPiece(BasePiece):
             if output_format not in {"json", "csv"}:
                 raise ValueError("output_format must be `json` or `csv`.")
 
-            latitude = float(payload["latitude"])
-            longitude = float(payload["longitude"])
-            start_date = str(payload["start_date"])
-            end_date = str(payload["end_date"])
-            pvout_peak_kw = float(payload.get("pvout_peak_kw", 5.2))
-            panel_tilt = float(payload.get("panel_tilt", 30.0))
+            # to_payload_dict() drops unset fields, so indexing it raises for any
+            # field the caller left on its default. Read through the validated
+            # model, which always carries one.
+            def _field(name: str):
+                return payload.get(name, getattr(input_data, name, None))
 
-            resolution = str(payload.get("time_resolution") or "15min").strip().lower()
+            latitude = float(_field("latitude"))
+            longitude = float(_field("longitude"))
+            start_date = str(_field("start_date"))
+            end_date = str(_field("end_date"))
+
+            window = _window_from_load_csv(_field("load_csv"))
+            if window:
+                start_date, end_date = window
+                self.logger.info(
+                    "Weather window taken from the load profile: %s .. %s",
+                    start_date,
+                    end_date,
+                )
+            pvout_peak_kw = float(_field("pvout_peak_kw") or 5.2)
+            panel_tilt = float(_field("panel_tilt") or 30.0)
+
+            resolution = str(_field("time_resolution") or "15min").strip().lower()
             if resolution not in {"15min", "hourly", "auto"}:
                 raise ValueError("time_resolution must be `15min`, `hourly` or `auto`.")
 

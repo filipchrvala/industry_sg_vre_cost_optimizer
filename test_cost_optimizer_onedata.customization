@@ -426,6 +426,19 @@
             "title": "Longitude",
             "type": "number"
           },
+          "load_csv": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Metered load profile. When set, the weather window is taken from its first and last timestamp, so production is modelled over exactly the period the investment case is evaluated on, and start_date / end_date below are ignored.",
+            "title": "Load profile CSV"
+          },
           "start_date": {
             "default": "2026-01-01",
             "description": "First day of the requested period in YYYY-MM-DD format.",
@@ -571,6 +584,11 @@
             "title": "Weather Csv Path",
             "type": "string"
           },
+          "training_base_csv": {
+            "description": "Preprocessed and feature-selected dataset the correction model trains on. Its feature columns are passed through untouched so the model sees the same inputs at serving time; only the PVOUT target is replaced where a ground measurement exists.",
+            "title": "Training Base Csv",
+            "type": "string"
+          },
           "scenario_yaml": {
             "description": "Scenario YAML providing site.latitude / site.longitude and the PV array.",
             "title": "Scenario Yaml",
@@ -591,6 +609,7 @@
         },
         "required": [
           "weather_csv_path",
+          "training_base_csv",
           "scenario_yaml"
         ],
         "title": "InputModel",
@@ -4094,6 +4113,13 @@
           "upstreamValue": "UserInputPiece (c0855de1) - Scenario Yaml",
           "value": ""
         },
+        "load_csv": {
+          "fromUpstream": true,
+          "upstreamId": "UserInputP_c0855de1a3735273a2a08cd79260fdc3",
+          "upstreamArgument": "load_csv",
+          "upstreamValue": "UserInputPiece (c0855de1) - Load Csv",
+          "value": ""
+        },
         "time_resolution": {
           "fromUpstream": false,
           "upstreamId": "",
@@ -4106,7 +4132,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "file"
+          "value": "batch_sample"
         },
         "output_format": {
           "fromUpstream": false,
@@ -4141,6 +4167,13 @@
           "upstreamValue": "OpenMeteoPVDataPiece (d09d4e0c) - File Path",
           "value": ""
         },
+        "training_base_csv": {
+          "fromUpstream": true,
+          "upstreamId": "PvoutModel_965a628d34275d6585c0ec7ef12fd0c4",
+          "upstreamArgument": "data_path",
+          "upstreamValue": "PvoutModelFeatureSelectPiece (965a628d) - Data Path",
+          "value": ""
+        },
         "scenario_yaml": {
           "fromUpstream": true,
           "upstreamId": "UserInputP_c0855de1a3735273a2a08cd79260fdc3",
@@ -4165,7 +4198,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "pvout"
+          "value": "prediction"
         },
         "data_path": {
           "fromUpstream": true,
@@ -4205,14 +4238,17 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "pvout"
+          "value": "pvout_prediction"
         },
         "available_models": {
           "fromUpstream": false,
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": ""
+          "value": [
+            "xgb_regressor_model",
+            "linear_regression_model"
+          ]
         },
         "feature_columns": {
           "fromUpstream": true,
@@ -4339,7 +4375,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "xgboost"
+          "value": "xgb_regressor_model"
         },
         "data_path": {
           "fromUpstream": true,
@@ -4379,7 +4415,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "xgboost"
+          "value": "error_correction_xgb_regressor_model"
         },
         "data_path": {
           "fromUpstream": true,
@@ -5089,7 +5125,7 @@
       "id": "105_147b3275-3cfe-55e6-be21-deaf354d1392",
       "type": "CustomNode",
       "position": {
-        "x": 520.0,
+        "x": 1300.0,
         "y": 600.0
       },
       "data": {
@@ -5114,7 +5150,7 @@
       "height": 70,
       "selected": false,
       "positionAbsolute": {
-        "x": 520.0,
+        "x": 1300.0,
         "y": 600.0
       },
       "dragging": false
@@ -5787,6 +5823,18 @@
       "target": "105_147b3275-3cfe-55e6-be21-deaf354d1392",
       "targetHandle": "target-105_147b3275-3cfe-55e6-be21-deaf354d1392",
       "id": "reactflow__edge-104_d09d4e0c-fb3d-5ad5-9186-3d5ed80bf128source-104_d09d4e0c-fb3d-5ad5-9186-3d5ed80bf128-105_147b3275-3cfe-55e6-be21-deaf354d1392target-105_147b3275-3cfe-55e6-be21-deaf354d1392",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "source": "109_965a628d-3427-5d65-85c0-ec7ef12fd0c4",
+      "sourceHandle": "source-109_965a628d-3427-5d65-85c0-ec7ef12fd0c4",
+      "target": "105_147b3275-3cfe-55e6-be21-deaf354d1392",
+      "targetHandle": "target-105_147b3275-3cfe-55e6-be21-deaf354d1392",
+      "id": "reactflow__edge-109_965a628d-3427-5d65-85c0-ec7ef12fd0c4source-109_965a628d-3427-5d65-85c0-ec7ef12fd0c4-105_147b3275-3cfe-55e6-be21-deaf354d1392target-105_147b3275-3cfe-55e6-be21-deaf354d1392",
       "markerEnd": {
         "type": "arrowclosed",
         "width": 20,
