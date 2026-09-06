@@ -39,9 +39,6 @@ def preprocess_irradiance_data(data):
     return data
 
 
-# Back-compat for older tests/imports.
-preprocess_solargis_data = preprocess_irradiance_data
-
 
 def ensure_datetime_column(data):
     """

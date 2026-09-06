@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.preprocessor_utils import (
     ensure_datetime_column,
-    preprocess_solargis_data,
+    preprocess_irradiance_data,
 )
 from utils.modes import preprocess_prediction
 
@@ -68,7 +68,7 @@ def test_preprocess_prediction_infers_features_when_missing():
     assert "GHI" in features
 
 
-def test_preprocess_prediction_supports_solargis_date_time_columns():
+def test_preprocess_prediction_supports_split_date_time_columns():
     payload = {
         "dataframe": pd.DataFrame(
             {
@@ -128,7 +128,7 @@ def test_ensure_datetime_column_missing_schema_raises():
         ensure_datetime_column(data)
 
 
-def test_preprocess_solargis_data_accepts_date_time_schema():
+def test_preprocess_irradiance_data_accepts_date_time_schema():
     data = pd.DataFrame(
         {
             "Date": ["11.05.2026"],
@@ -139,7 +139,7 @@ def test_preprocess_solargis_data_accepts_date_time_schema():
             "PVOUT": [4.218],
         }
     )
-    out = preprocess_solargis_data(data)
+    out = preprocess_irradiance_data(data)
     assert "datetime" in out.columns
     assert "hour_of_day" in out.columns
 

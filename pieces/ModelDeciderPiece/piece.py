@@ -30,7 +30,7 @@ class ModelDeciderPiece(BasePiece):
 
         # Strip the chosen target_column from feature_columns so downstream pieces
         # never train with the target leaking in as a predictor. This matters when
-        # DataPreprocessing merges Solargis + OKTE into one dataset and two
+        # DataPreprocessing merges weather + price data into one dataset and two
         # ModelDecider nodes (one per target) fan out from it — each must echo a
         # feature list that excludes its own target.
         target_column_resolved = str(payload.get("target_column") or "PVOUT")
