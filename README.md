@@ -12,17 +12,28 @@ Linux / macOS:
 bash scripts/start_local_web.sh
 ```
 
-Windows:
+Windows — first `cd` into the project (not `C:\WINDOWS\system32`). On this PC the command is `python`, not `python3`.
+
+Easiest: double-click `start_local_web.bat` in the project folder.
+
+Or in PowerShell:
 
 ```powershell
+cd C:\Users\NTB\Domino\industry_sg_vre_workflow
 powershell -ExecutionPolicy Bypass -File scripts\start_local_web.ps1
 ```
 
-Same thing as a Python module:
+If the repo lives somewhere else, `cd` there instead. You can find it with:
 
-```bash
-python3 scripts/make_demo_inputs.py   # only needed the first time
-python3 scripts/start_local_web.py
+```powershell
+Get-ChildItem -Path C:\Users\NTB -Filter start_local_web.bat -Recurse -ErrorAction SilentlyContinue
+```
+
+Same thing as a Python module (from the project folder):
+
+```powershell
+python scripts\make_demo_inputs.py
+python scripts\start_local_web.py
 ```
 
 The page is `http://127.0.0.1:8088/`. If that port is taken, pass `--port 8090`. Leave the server running while you use the page.

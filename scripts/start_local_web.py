@@ -45,7 +45,9 @@ def main() -> int:
     url = f"http://127.0.0.1:{args.port}/"
     if not args.no_browser:
         threading.Thread(target=lambda: (time.sleep(0.6), webbrowser.open(url)), daemon=True).start()
+    print(f"Projekt: {ROOT}")
     print(url)
+    print("Toto okno nechajte otvorené, kým pracujete so stránkou.")
     serve(args.port)
     return 0
 
