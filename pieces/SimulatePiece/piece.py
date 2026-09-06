@@ -1314,8 +1314,18 @@ def _sim_bundle(
     }
 
 
-def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Prehľadáva (kWp, kWh) a vracia najlepšiu konfiguráciu + log."""
+def _auto_optimize_sizes(
+    cfg: dict[str, Any],
+    df: pd.DataFrame,
+    bounds_override: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Prehľadáva (kWp, kWh) a vracia najlepšiu konfiguráciu + log.
+
+    ``bounds_override`` accepts the technical limits already computed upstream by
+    TechnicalLimitsPiece, so the search respects the same roof area, CAPEX cap and
+    roof load limits that the rest of the workflow reports. Without it the bounds
+    were silently recomputed here and the upstream piece had no effect.
+    """
     base = copy.deepcopy(cfg)
     eq = base.get("equipment") or {}
     auto = eq.get("auto") or {}
@@ -1332,6 +1342,20 @@ def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[st
     max_cfgs = int(auto.get("max_configurations", 180))
     dt_h = infer_timestep_hours(df)
     bounds = technical_bounds_kwp_kwh(base, df, dt_h)
+    if bounds_override:
+        for key in ("max_kwp", "max_kwh"):
+            value = bounds_override.get(key)
+            if value is not None:
+                try:
+                    bounds[key] = float(value)
+                except (TypeError, ValueError):
+                    pass
+        bounds["bounds_source"] = "TechnicalLimitsPiece"
+        upstream_notes = bounds_override.get("notes")
+        if isinstance(upstream_notes, list):
+            bounds["notes"] = list(upstream_notes)
+    else:
+        bounds["bounds_source"] = "recomputed_locally"
 
     kwp_step = float(auto.get("kwp_step", 50.0))
     kwh_step = float(auto.get("kwh_step", 100.0))

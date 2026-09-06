@@ -33,6 +33,65 @@ class CatalogSyncPiece(BasePiece):
     def _project_root() -> Path:
         return Path(__file__).resolve().parents[2]
 
+    @staticmethod
+    def _median(values: list[float]) -> float:
+        clean = sorted(v for v in values if v and v > 0)
+        if not clean:
+            return 0.0
+        mid = len(clean) // 2
+        return clean[mid] if len(clean) % 2 else (clean[mid - 1] + clean[mid]) / 2.0
+
+    @staticmethod
+    def _num(row, *keys, default: float = 0.0) -> float:
+        for key in keys:
+            if key in row:
+                val = pd.to_numeric(pd.Series([row.get(key)]), errors="coerce").iloc[0]
+                if pd.notna(val):
+                    return float(val)
+        return default
+
+    @classmethod
+    def _normalize_pv_module(cls, row, name: str, default_eur_per_wp: float) -> dict | None:
+        """Map a SAM CEC Modules row onto the schema rank_pv_modules_for_site reads.
+
+        SAM calls nameplate power ``STC`` and cell area ``A_c``; the ranker wants
+        ``power_wp``, ``area_m2``, ``efficiency_pct`` and ``eur_per_wp``. Without
+        this mapping every online module scored on the ranker's defaults of
+        300 Wp, 20% and 0.35 EUR/Wp, so the ranking carried no information.
+        """
+        power_wp = cls._num(row, "STC", "power_wp")
+        if power_wp <= 0:
+            return None
+
+        area_m2 = cls._num(row, "A_c", "area_m2")
+        efficiency_pct = (
+            power_wp / (area_m2 * 1000.0) * 100.0 if area_m2 > 0 else cls._num(row, "efficiency_pct", default=0.0)
+        )
+        cells = cls._num(row, "N_s", "cells")
+
+        return {
+            "name": name,
+            "manufacturer": name.split(":")[0].strip() if ":" in name else str(row.get("manufacturer", "")),
+            "model": name.split(":", 1)[1].strip() if ":" in name else str(row.get("model", name)),
+            "technology": row.get("Technology", row.get("technology")),
+            "bifacial": str(row.get("Bifacial", row.get("bifacial", ""))).upper() in ("Y", "TRUE", "1"),
+            "power_wp": power_wp,
+            "area_m2": round(area_m2, 4) if area_m2 > 0 else None,
+            "efficiency_pct": round(efficiency_pct, 2) if efficiency_pct > 0 else None,
+            # SAM reports total cell count, and modern half-cut layouts run 108
+            # cells or more, so this is the only signal available for the
+            # shading-tolerance term.
+            "half_cut": cells >= 108,
+            "cells": int(cells) if cells > 0 else None,
+            # SAM carries no commercial data; the local catalog median keeps the
+            # economic term on a realistic scale instead of the ranker default.
+            "eur_per_wp": round(default_eur_per_wp, 4),
+            "price_source": "estimated_from_local_catalog_median",
+            "source": "nrel_sam",
+            # Retained so any consumer still reading the old field keeps working.
+            "stc_watts": power_wp,
+        }
+
     def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
         _stage = None
         _piece_out = None
@@ -207,27 +266,40 @@ class CatalogSyncPiece(BasePiece):
             if not bat_products and local_bt.is_file():
                 loc_bt = json.loads(local_bt.read_text(encoding="utf-8"))
                 bat_products = list(loc_bt.get("products") or [])
+            # The NREL SAM library is an electrical database with no prices and
+            # different column names than the ranker expects. Fall back to the
+            # local catalog for the commercial attributes so ranking is not run
+            # on defaults, which is what happened before.
+            local_pv_items: list[dict] = []
+            local_pv_path = self._project_root() / "catalog" / "pv_modules_catalog.json"
+            if local_pv_path.is_file():
+                local_pv_items = list(
+                    (json.loads(local_pv_path.read_text(encoding="utf-8")) or {}).get("modules") or []
+                )
+            default_eur_per_wp = self._median(
+                [float(m.get("eur_per_wp", 0) or 0) for m in local_pv_items]
+            ) or 0.16
+
             pv = []
             for _, r in pv_df.iterrows():
                 name = str(r.get("Name", "")).strip()
                 if not name:
                     continue
-                stc = pd.to_numeric(
-                    pd.Series([r.get("STC", r.get("power_wp", 0))]),
-                    errors="coerce",
-                ).fillna(0.0).iloc[0]
-                pv.append(
-                    {
-                        "name": name,
-                        "manufacturer": (
-                            name.split(":")[0].strip() if ":" in name else str(r.get("manufacturer", ""))
-                        ),
-                        "model": name.split(":", 1)[1].strip() if ":" in name else str(r.get("model", name)),
-                        "technology": r.get("Technology", r.get("technology")),
-                        "bifacial": str(r.get("Bifacial", r.get("bifacial", ""))).upper() in ("Y", "TRUE", "1"),
-                        "stc_watts": float(stc),
-                    }
-                )
+                item = self._normalize_pv_module(r, name, default_eur_per_wp)
+                if item is not None:
+                    pv.append(item)
+
+            # Local entries carry real prices, so they lead the list and the
+            # ranker can compare EUR/Wp against something meaningful.
+            known = {(str(m.get("manufacturer")), str(m.get("model"))) for m in pv}
+            for m in local_pv_items:
+                key = (str(m.get("manufacturer")), str(m.get("model")))
+                if key in known:
+                    continue
+                entry = dict(m)
+                entry.setdefault("name", f"{m.get('manufacturer', '')}: {m.get('model', '')}".strip())
+                entry["source"] = "local_catalog"
+                pv.append(entry)
             inv = []
             for _, r in inv_df.iterrows():
                 name = str(r.get("Name", "")).strip()

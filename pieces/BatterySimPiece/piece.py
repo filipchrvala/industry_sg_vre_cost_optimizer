@@ -124,9 +124,47 @@ class BatterySimPiece(BasePiece):
             mrk = cfg.get("mrk") or {}
             en = cfg.get("energy") or {}
             analysis = cfg.get("analysis") or {}
+            pv_cfg = cfg.get("pv") or {}
             energy_kwh = float(bat.get("energy_kwh", 0.0))
             eta_c = float(bat.get("charge_efficiency", 0.95))
             eta_d = float(bat.get("discharge_efficiency", 0.95))
+
+            # Dispatch decides when storing energy pays off, so it needs the real
+            # levelised cost of this plant. Hardcoding it meant every site was
+            # dispatched as if PV cost 0.12 EUR/kWh and battery throughput 0.02,
+            # regardless of the CAPEX, yield and cycle life in the scenario.
+            installed_kwp = float(pv_cfg.get("installed_kwp", 0.0))
+            yield_kwp = float(pv_cfg.get("yield_kwh_per_kwp_year", 1000.0))
+            years = int(analysis.get("amortization_years", 12))
+            discount_rate = float(analysis.get("discount_rate", 0.08))
+            use_pv_flag = bool(cfg.get("use_pv", True))
+            use_bat_flag = bool(cfg.get("use_battery", True))
+            pv_capex = installed_kwp * float(pv_cfg.get("specific_capex_eur_per_kwp", 800.0))
+            bat_capex = energy_kwh * float(bat.get("specific_capex_eur_per_kwh", 400.0))
+
+            levelized = sim.compute_levelized_economics(
+                pv_cfg,
+                bat,
+                analysis,
+                en,
+                installed_kwp=installed_kwp,
+                yield_kwp=yield_kwp,
+                energy_kwh=energy_kwh,
+                pv_capex=pv_capex,
+                bat_capex=bat_capex,
+                eta_c=eta_c,
+                eta_d=eta_d,
+                years=years,
+                dr=discount_rate,
+                use_pv=use_pv_flag,
+                use_bat=use_bat_flag,
+            )
+            _log(
+                "Levelized economics: pv_lcoe={pv_lcoe_eur_per_kwh:.4f} EUR/kWh, "
+                "battery_throughput={battery_marginal_eur_per_kwh_throughput:.4f} EUR/kWh".format(
+                    **levelized
+                )
+            )
             strategy_thresholds = sim.load_battery_strategy_thresholds(strategy_path)
             dispatch_kwargs = {}
             if strategy_thresholds:
@@ -144,8 +182,10 @@ class BatterySimPiece(BasePiece):
                 "initial_soc_pct": float(bat.get("initial_soc_pct", 50.0)),
                 "mrk_contract_kw": float(mrk.get("contract_kw", 0.0)),
                 "feed_in_eur_per_kwh": float(en.get("feed_in_surplus_eur_per_kwh", 0.05)),
-                "pv_lcoe_eur_per_kwh": 0.12,
-                "battery_throughput_eur_per_kwh": 0.02,
+                "pv_lcoe_eur_per_kwh": float(levelized["pv_lcoe_eur_per_kwh"]),
+                "battery_throughput_eur_per_kwh": float(
+                    levelized["battery_marginal_eur_per_kwh_throughput"]
+                ),
                 "max_fraction_from_grid_charge": float(bat.get("max_fraction_capacity_from_grid_charge", 0.72)),
                 "excess_penalty_eur_per_kw": float(mrk.get("excess_peak_penalty_eur_per_kw", 0.0)),
                 "peak_shaving_reserve_pct": float(bat.get("peak_shaving_reserve_pct", 30.0)),
