@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UC3.2 — lokálny návrh FVE a batérie</title>
+  <style>
+    :root {
+      --bg: #f5f6f8; --panel: #fff; --ink: #14181f; --muted: #5c6675;
+      --line: #dfe3e9; --accent: #1a6a8c; --good: #2f8f5b; --bad: #b23a3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+    header { border-bottom: 2px solid var(--ink); padding-bottom: 14px; margin-bottom: 22px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 14px; }
+    h2 {
+      font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin: 28px 0 12px; font-weight: 600;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+    label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    input, select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+      font: inherit; background: #fff;
+    }
+    .hint { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+    button {
+      border: 0; border-radius: 8px; padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .primary { background: var(--accent); color: #fff; }
+    .ghost { background: #eef2f5; color: var(--ink); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    #run-view { display: none; }
+    .piece { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .piece:last-child { border-bottom: 0; }
+    .st { font-variant-numeric: tabular-nums; color: var(--muted); }
+    .st.ok { color: var(--good); }
+    .st.failed { color: var(--bad); }
+    .st.running { color: var(--accent); font-weight: 650; }
+    .bar { height: 8px; background: #e6e9ee; border-radius: 99px; overflow: hidden; margin: 10px 0 18px; }
+    .bar > i { display: block; height: 100%; width: 0; background: var(--accent); }
+    #log {
+      max-height: 180px; overflow: auto; background: #14181f; color: #d5dde6;
+      font: 12px/1.45 ui-monospace, Consolas, monospace; padding: 12px; border-radius: 8px; margin-top: 14px;
+    }
+    .err { color: var(--bad); margin-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Návrh FVE a batérie</h1>
+    <div class="sub">Zadajte odber, ceny a obmedzenia lokality. Po spustení uvidíte priebeh výpočtu a na konci dashboard.</div>
+  </header>
+
+  <form id="form">
+    <h2>Odber a ceny</h2>
+    <div class="panel">
+      <div class="grid">
+        <div>
+          <label>CSV so záťažou a cenami</label>
+          <input type="file" name="load_csv" accept=".csv,text/csv">
+          <div class="hint">Stĺpce: datetime, load_kw, price_eur_per_kwh. Ak súbor nevyberiete, použije sa demo profil.</div>
+        </div>
+        <div>
+          <label>Použiť demo dáta</label>
+          <select name="use_demo">
+            <option value="yes">Áno — závod Nitra, 1 rok, 15 min</option>
+            <option value="no">Nie — použiť nahratý CSV</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <h2>Lokalita</h2>
+    <div class="panel grid">
+      <div><label>Názov objektu</label><input name="site_name" value="Demo Industrial Site — Nitra"></div>
+      <div><label>Zemepisná šírka</label><input name="latitude" type="number" step="0.0001" value="48.3061"></div>
+      <div><label>Zemepisná dĺžka</label><input name="longitude" type="number" step="0.0001" value="18.0764"></div>
+      <div><label>Nadmorská výška (m)</label><input name="altitude_m" type="number" step="1" value="144"></div>
+      <div><label>Časové pásmo</label><input name="timezone" value="Europe/Bratislava"></div>
+    </div>
+
+    <h2>Rozsah návrhu</h2>
+    <div class="panel grid">
+      <div>
+        <label>Čo navrhovať</label>
+        <select name="system_scope">
+          <option value="pv_and_battery">FVE aj batéria</option>
+          <option value="pv_only">Len FVE</option>
+          <option value="battery_only">Len batéria</option>
+        </select>
+      </div>
+      <div>
+        <label>Výber veľkosti</label>
+        <select name="selection_mode">
+          <option value="auto">Automaticky podľa NPV</option>
+          <option value="manual">Ručne — použiť zadané kWp / kWh</option>
+        </select>
+      </div>
+      <div>
+        <label>Cieľ optimalizácie</label>
+        <select name="objective">
+          <option value="max_npv">Najvyššie NPV</option>
+          <option value="shortest_payback">Najkratšia návratnosť</option>
+        </select>
+      </div>
+      <div>
+        <label>Povinná batéria</label>
+        <select name="require_battery">
+          <option value="false">Nie — smie navrhnúť 0 kWh</option>
+          <option value="true">Áno — aspoň minimum</option>
+        </select>
+        <div class="hint">Ak ekonómia batériu neunesie, bez povinnosti vráti len FVE.</div>
+      </div>
+    </div>
+
+    <h2>FVE (východisková / ručná veľkosť)</h2>
+    <div class="panel grid">
+      <div><label>Inštalovaný výkon (kWp)</label><input name="installed_kwp" type="number" step="10" value="600"></div>
+      <div><label>Sklon panelov (°)</label><input name="panel_tilt" type="number" step="1" value="25"></div>
+      <div><label>Azimut (° , 180 = juh)</label><input name="azimuth" type="number" step="1" value="180"></div>
+      <div><label>CAPEX (€ / kWp)</label><input name="specific_capex_eur_per_kwp" type="number" step="10" value="720"></div>
+      <div><label>Očakávaný výnos (kWh / kWp / rok)</label><input name="yield_kwh_per_kwp_year" type="number" step="10" value="1050"></div>
+      <div><label>Max. plocha strechy (m²)</label><input name="max_roof_area_m2" type="number" step="10" value="7800"></div>
+    </div>
+
+    <h2>Batéria (východisková / ručná veľkosť)</h2>
+    <div class="panel grid">
+      <div><label>Kapacita (kWh)</label><input name="energy_kwh" type="number" step="10" value="800"></div>
+      <div><label>CAPEX (€ / kWh)</label><input name="specific_capex_eur_per_kwh" type="number" step="5" value="295"></div>
+      <div><label>C-rate</label><input name="max_c_rate" type="number" step="0.1" value="0.5"></div>
+      <div><label>Minimum batérie pri povinnosti (kWh)</label><input name="min_battery_kwh" type="number" step="50" value="200"></div>
+      <div><label>Max. plocha pre BESS (m²)</label><input name="max_battery_area_m2" type="number" step="1" value="160"></div>
+    </div>
+
+    <h2>Tarifa, MRK a financie</h2>
+    <div class="panel grid">
+      <div><label>Rezervovaná kapacita (kW)</label><input name="contract_kw" type="number" step="10" value="1000"></div>
+      <div><label>Platba za kW / mesiac (€)</label><input name="fee_eur_per_kw_month" type="number" step="0.1" value="4.2"></div>
+      <div><label>Penále za prekročenie (€ / kW)</label><input name="excess_peak_penalty_eur_per_kw" type="number" step="0.1" value="12"></div>
+      <div><label>Výkup prebytku (€ / kWh)</label><input name="feed_in_surplus_eur_per_kwh" type="number" step="0.001" value="0.045"></div>
+      <div><label>Amortizácia (roky)</label><input name="amortization_years" type="number" step="1" value="15"></div>
+      <div><label>Diskontná sadzba</label><input name="discount_rate" type="number" step="0.005" value="0.075"></div>
+      <div><label>Max. CAPEX (€)</label><input name="max_capex_eur" type="number" step="10000" value="1400000"></div>
+      <div><label>Distribúcia (€ / kWh)</label><input name="distribution_eur_per_kwh" type="number" step="0.001" value="0.041"></div>
+    </div>
+
+    <details>
+      <summary style="cursor:pointer;margin:22px 0 12px;color:#5c6675;font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">Ďalšie technické parametre</summary>
+      <div class="panel grid">
+        <div>
+          <label>Uloženie FVE</label>
+          <select name="mount_type">
+            <option value="roof" selected>Strecha</option>
+            <option value="ground">Zem</option>
+          </select>
+        </div>
+        <div>
+          <label>Tienenie</label>
+          <select name="shading">
+            <option value="low" selected>Nízke</option>
+            <option value="medium">Stredné</option>
+            <option value="high">Vysoké</option>
+          </select>
+        </div>
+        <div><label>O&amp;M FVE (€ / kWp / rok)</label><input name="om_eur_per_kwp_year" type="number" step="0.5" value="11"></div>
+        <div><label>Degradácia FVE (% / rok)</label><input name="degradation_pct_per_year" type="number" step="0.05" value="0.45"></div>
+        <div><label>Účinnosť nabíjania</label><input name="charge_efficiency" type="number" step="0.01" value="0.96"></div>
+        <div><label>Účinnosť vybíjania</label><input name="discharge_efficiency" type="number" step="0.01" value="0.96"></div>
+        <div><label>Životnosť cyklov</label><input name="cycle_life" type="number" step="100" value="6000"></div>
+        <div><label>Krok FVE (kWp)</label><input name="kwp_step" type="number" step="10" value="100"></div>
+        <div><label>Krok batérie (kWh)</label><input name="kwh_step" type="number" step="10" value="200"></div>
+        <div><label>Minimum FVE (kWp)</label><input name="min_pv_kwp" type="number" step="10" value="100"></div>
+        <div><label>Nosnosť strechy (kg / m²)</label><input name="roof_load_limit_kg_per_m2" type="number" step="1" value="25"></div>
+      </div>
+    </details>
+
+    <div class="actions">
+      <button type="submit" class="primary" id="run-btn">Spustiť výpočet</button>
+      <button type="button" class="ghost" id="demo-btn">Vrátiť demo hodnoty</button>
+    </div>
+    <div class="err" id="form-err"></div>
+  </form>
+
+  <section id="run-view">
+    <h2>Priebeh výpočtu</h2>
+    <div class="panel">
+      <div id="run-status">Čaká sa…</div>
+      <div class="bar"><i id="bar"></i></div>
+      <div id="pieces"></div>
+      <div id="log"></div>
+      <div class="err" id="run-err"></div>
+    </div>
+  </section>
+</div>
+<script>
+const form = document.getElementById("form");
+const runView = document.getElementById("run-view");
+const piecesEl = document.getElementById("pieces");
+const bar = document.getElementById("bar");
+const statusEl = document.getElementById("run-status");
+const logEl = document.getElementById("log");
+const formErr = document.getElementById("form-err");
+const runErr = document.getElementById("run-err");
+const runBtn = document.getElementById("run-btn");
+
+document.getElementById("demo-btn").onclick = () => location.reload();
+
+form.onsubmit = async (ev) => {
+  ev.preventDefault();
+  formErr.textContent = "";
+  runErr.textContent = "";
+  runBtn.disabled = true;
+  const data = new FormData(form);
+  runView.style.display = "block";
+  statusEl.textContent = "Spúšťam…";
+  try {
+    const res = await fetch("/api/run", { method: "POST", body: data });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    poll();
+  } catch (err) {
+    formErr.textContent = err.message;
+    runBtn.disabled = false;
+  }
+};
+
+function paint(state) {
+  const order = state.order || [];
+  const byName = Object.fromEntries((state.pieces || []).map((p) => [p.piece, p]));
+  piecesEl.innerHTML = order.map((name) => {
+    const row = byName[name] || { status: name === state.current ? "running" : "pending" };
+    const extra = row.seconds != null ? ` ${row.seconds}s` : "";
+    const msg = row.error || row.message || "";
+    return `<div class="piece"><span>${name}</span><span class="st ${row.status}">${row.status}${extra}${msg ? " — " + msg : ""}</span></div>`;
+  }).join("");
+  const done = (state.pieces || []).length;
+  const total = order.length || 1;
+  bar.style.width = Math.round(100 * done / total) + "%";
+  if (state.phase === "running") statusEl.textContent = "Beží " + (state.current || "") + " (" + done + "/" + total + ")";
+  if (state.phase === "done") statusEl.textContent = state.ok ? "Hotovo. Otváram dashboard…" : "Výpočet skončil s chybou.";
+  if (state.error) runErr.textContent = state.error;
+  (state.log || []).slice(-40).forEach(() => {});
+  logEl.textContent = (state.log || []).slice(-80).join("");
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function poll() {
+  const res = await fetch("/api/status");
+  const state = await res.json();
+  paint(state);
+  if (state.phase === "done" && state.ok && state.dashboard) {
+    setTimeout(() => { location.href = state.dashboard; }, 1200);
+    return;
+  }
+  if (state.phase === "done") {
+    runBtn.disabled = false;
+    return;
+  }
+  setTimeout(poll, 800);
+}
+</script>
+</body>
+</html>

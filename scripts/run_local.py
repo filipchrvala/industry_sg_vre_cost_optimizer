@@ -108,6 +108,128 @@ def run_piece(
     return coerce(result), ""
 
 
+def run_workflow(
+    *,
+    load_csv: Path,
+    scenario_yaml: Path,
+    out: Path,
+    skip: list[str] | None = None,
+    stop_on_error: bool = False,
+    prices_csv: str = "",
+    on_event=None,
+) -> dict[str, Any]:
+    """Execute the declared DAG and optionally report each piece as it finishes.
+
+    ``on_event`` receives a small dict (start / piece_start / piece_end / done)
+    so a web UI can show the same run the CLI prints, without scraping stdout.
+    """
+    install_domino_stub()
+    if str(ROOT / "scripts") not in sys.path:
+        sys.path.insert(0, str(ROOT / "scripts"))
+    from build_workflow import WORKFLOW  # noqa: E402
+
+    def emit(event: dict[str, Any]) -> None:
+        if on_event is not None:
+            on_event(event)
+
+    load_csv = Path(load_csv).resolve()
+    scenario_yaml = Path(scenario_yaml).resolve()
+    for path in (load_csv, scenario_yaml):
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing input: {path}")
+
+    overrides = {
+        "UserInputPiece": {
+            "load_csv": str(load_csv),
+            "prices_csv": prices_csv or "",
+            "scenario_yaml": str(scenario_yaml),
+        }
+    }
+
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    order = topological_order(WORKFLOW)
+    skipped = set(skip or [])
+    outputs: dict[str, dict] = {}
+    report: list[dict] = []
+
+    emit({"type": "start", "pieces": order, "total": len(order)})
+
+    for index, name in enumerate(order):
+        if name in skipped:
+            print(f"SKIP  {name}")
+            item = {"piece": name, "status": "skipped"}
+            report.append(item)
+            emit({"type": "piece_end", **item, "index": index, "total": len(order)})
+            continue
+
+        emit({"type": "piece_start", "piece": name, "index": index, "total": len(order)})
+        started = time.time()
+        try:
+            result, problem = run_piece(name, WORKFLOW[name], outputs, out, overrides)
+        except Exception as exc:  # noqa: BLE001
+            elapsed = time.time() - started
+            (out / f"{name}.error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            print(f"FAIL  {name} ({elapsed:.1f}s): {type(exc).__name__}: {exc}")
+            item = {
+                "piece": name,
+                "status": "failed",
+                "seconds": round(elapsed, 2),
+                "error": str(exc),
+            }
+            report.append(item)
+            emit({"type": "piece_end", **item, "index": index, "total": len(order)})
+            if stop_on_error:
+                break
+            continue
+
+        elapsed = time.time() - started
+        if result is None:
+            print(f"FAIL  {name} ({elapsed:.1f}s): {problem}")
+            item = {
+                "piece": name,
+                "status": "failed",
+                "seconds": round(elapsed, 2),
+                "error": problem,
+            }
+            report.append(item)
+            emit({"type": "piece_end", **item, "index": index, "total": len(order)})
+            if stop_on_error:
+                break
+            continue
+
+        outputs[name] = result
+        message = str(result.get("message", "")).strip()
+        print(f"OK    {name} ({elapsed:.1f}s){f': {message}' if message else ''}")
+        item = {
+            "piece": name,
+            "status": "ok",
+            "seconds": round(elapsed, 2),
+            "message": message,
+        }
+        report.append(item)
+        emit({"type": "piece_end", **item, "index": index, "total": len(order)})
+
+    failed = [r["piece"] for r in report if r["status"] == "failed"]
+    dashboard = out / "DashboardPiece" / "dashboard.html"
+    summary = {
+        "pieces": report,
+        "ok": not failed,
+        "failed": failed,
+        "dashboard": str(dashboard) if dashboard.is_file() else None,
+    }
+    (out / "run_summary.json").write_text(
+        json.dumps({**summary, "outputs": outputs}, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
+    print(
+        f"\n{len(report) - len(failed) - len(skipped)} ok, "
+        f"{len(failed)} failed, {len(skipped)} skipped"
+    )
+    emit({"type": "done", **{k: summary[k] for k in ("ok", "failed", "dashboard")}})
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, default=ROOT / "examples" / "demo_site")
@@ -125,78 +247,24 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    install_domino_stub()
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from build_workflow import WORKFLOW  # noqa: E402
-
     load_csv = (args.inputs / "load_and_prices.csv").resolve()
     scenario_yaml = (args.inputs / "scenario.yaml").resolve()
-    for path in (load_csv, scenario_yaml):
-        if not path.is_file():
-            print(f"Missing input: {path}\nRun scripts/make_demo_inputs.py first.")
-            return 2
+    if not load_csv.is_file() or not scenario_yaml.is_file():
+        print(f"Missing input under {args.inputs}\nRun scripts/make_demo_inputs.py first.")
+        return 2
 
-    overrides = {
-        "UserInputPiece": {
-            "load_csv": str(load_csv),
-            "prices_csv": "",
-            "scenario_yaml": str(scenario_yaml),
-        }
-    }
-
-    args.out.mkdir(parents=True, exist_ok=True)
-    outputs: dict[str, dict] = {}
-    report: list[dict] = []
-    skipped = set(args.skip)
-
-    for name in topological_order(WORKFLOW):
-        if name in skipped:
-            print(f"SKIP  {name}")
-            report.append({"piece": name, "status": "skipped"})
-            continue
-
-        started = time.time()
-        try:
-            result, problem = run_piece(name, WORKFLOW[name], outputs, args.out, overrides)
-        except Exception as exc:  # noqa: BLE001
-            elapsed = time.time() - started
-            detail = traceback.format_exc()
-            (args.out / f"{name}.error.txt").write_text(detail, encoding="utf-8")
-            print(f"FAIL  {name} ({elapsed:.1f}s): {type(exc).__name__}: {exc}")
-            report.append(
-                {"piece": name, "status": "failed", "seconds": round(elapsed, 2), "error": str(exc)}
-            )
-            if args.stop_on_error:
-                break
-            continue
-
-        elapsed = time.time() - started
-        if result is None:
-            print(f"FAIL  {name} ({elapsed:.1f}s): {problem}")
-            report.append(
-                {"piece": name, "status": "failed", "seconds": round(elapsed, 2), "error": problem}
-            )
-            if args.stop_on_error:
-                break
-            continue
-
-        outputs[name] = result
-        message = str(result.get("message", "")).strip()
-        print(f"OK    {name} ({elapsed:.1f}s){f': {message}' if message else ''}")
-        report.append({"piece": name, "status": "ok", "seconds": round(elapsed, 2)})
-
-    summary = args.out / "run_summary.json"
-    summary.write_text(
-        json.dumps({"pieces": report, "outputs": outputs}, indent=2, ensure_ascii=False, default=str),
-        encoding="utf-8",
-    )
-
-    failed = [r["piece"] for r in report if r["status"] == "failed"]
-    print(f"\n{len(report) - len(failed) - len(skipped)} ok, {len(failed)} failed, {len(skipped)} skipped")
-    print(f"Summary: {summary}")
-    if failed:
-        print("Failed: " + ", ".join(failed))
-    return 1 if failed else 0
+    try:
+        summary = run_workflow(
+            load_csv=load_csv,
+            scenario_yaml=scenario_yaml,
+            out=args.out,
+            skip=args.skip,
+            stop_on_error=args.stop_on_error,
+        )
+    except FileNotFoundError as exc:
+        print(exc)
+        return 2
+    return 0 if summary["ok"] else 1
 
 
 if __name__ == "__main__":

@@ -2,7 +2,34 @@
 
 Domino piece repository for the MRK cost-optimizer workflow: historical load in, sized PV and battery out, with an AI production forecast and a CFO dashboard.
 
-## Local run without Domino
+## Local run in the browser
+
+Start the input page, fill in the site (or keep the demo values), press **Spustiť výpočet**, watch the 23-piece workflow, then the browser opens the dashboard.
+
+Linux / macOS:
+
+```bash
+bash scripts/start_local_web.sh
+```
+
+Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_local_web.ps1
+```
+
+Same thing as a Python module:
+
+```bash
+python3 scripts/make_demo_inputs.py   # only needed the first time
+python3 scripts/start_local_web.py
+```
+
+The page is `http://127.0.0.1:8088/`. If that port is taken, pass `--port 8090`. Leave the server running while you use the page.
+
+CSV columns: `datetime`, `load_kw`, `price_eur_per_kwh`. If you do not upload a file, the Nitra demo year is used.
+
+## Local run from the terminal (no browser)
 
 ```bash
 python3 scripts/make_demo_inputs.py
@@ -34,6 +61,8 @@ To let a Cloud Agent drive that Domino itself, start a Cursor self-hosted worker
 | `.domino/` | Compiled metadata (CI) |
 | `.gitlab-ci.yml` | Harbor build on GitLab |
 | `.github/workflows/` | GHCR build on GitHub (retag from Harbor organize) |
+| `webapp/` | Local input form and progress page |
+| `scripts/start_local_web.py` | Opens the form in the browser |
 | `scripts/build_workflow.py` | Source of truth for the Domino DAG |
 | `test_cost_optimizer_onedata.customization` | Domino import (GitHub / GHCR) |
 | `test_cost_optimizer_local.customization` | Same graph, demo files on disk (local Domino) |

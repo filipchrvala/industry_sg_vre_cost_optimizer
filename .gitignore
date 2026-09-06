@@ -12,3 +12,4 @@ user_input/
 *.docx
 !docs/*.docx
 .local_run/
+.local_web/
