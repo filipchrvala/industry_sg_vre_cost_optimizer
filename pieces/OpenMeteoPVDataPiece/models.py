@@ -30,8 +30,13 @@ OPEN_METEO_CSV_FIELDNAMES = [
     "PVOUT_UNC_HIGH",
 ]
 
-# Open-Meteo archive endpoint — no API key required
+# Open-Meteo endpoints — no API key required.
+# The archive (ERA5) only serves hourly data. The historical-forecast API serves
+# 15-minute data back to 2021, which is what a 15-minute load profile needs.
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+OPEN_METEO_HISTORICAL_FORECAST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
+
+TIME_RESOLUTIONS = ("15min", "hourly", "auto")
 
 
 class InputModel(BaseModel):
@@ -74,6 +79,15 @@ class InputModel(BaseModel):
         default=30.0,
         title="Panel Tilt (degrees)",
         description="Fallback tilt if scenario_yaml has no pv.tilt_deg.",
+    )
+    time_resolution: str | None = Field(
+        default="15min",
+        title="Time Resolution",
+        description=(
+            "One of: `15min` (historical-forecast API, matches a 15-minute load "
+            "profile), `hourly` (ERA5 archive, longer history), or `auto` to try "
+            "15-minute first and fall back to hourly."
+        ),
     )
     output_mode: str | None = Field(
         default="batch_sample",
@@ -122,6 +136,19 @@ class InputModel(BaseModel):
         output_mode = data.get("output_mode")
         if output_mode is not None:
             data["output_mode"] = str(output_mode).strip().lower()
+
+        resolution = data.get("time_resolution")
+        if resolution is not None:
+            normalized = str(resolution).strip().lower().replace("_", "").replace("-", "")
+            data["time_resolution"] = {
+                "15min": "15min",
+                "15minutely": "15min",
+                "minutely15": "15min",
+                "quarterhourly": "15min",
+                "hourly": "hourly",
+                "1h": "hourly",
+                "auto": "auto",
+            }.get(normalized, normalized)
 
         output_format = data.get("output_format")
         if output_format is not None:
