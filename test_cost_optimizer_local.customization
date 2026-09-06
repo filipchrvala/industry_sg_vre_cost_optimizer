@@ -4019,7 +4019,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "onedata:///FilipsSpace/cost_optimizer/inputs/load_and_prices.csv"
+          "value": "/workspace/examples/demo_site/load_and_prices.csv"
         },
         "prices_csv": {
           "fromUpstream": false,
@@ -4033,7 +4033,7 @@
           "upstreamId": "",
           "upstreamArgument": "",
           "upstreamValue": "",
-          "value": "onedata:///FilipsSpace/cost_optimizer/inputs/scenario.yaml"
+          "value": "/workspace/examples/demo_site/scenario.yaml"
         }
       }
     },

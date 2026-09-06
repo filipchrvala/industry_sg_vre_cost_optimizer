@@ -31,6 +31,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PIECES_DIR = ROOT / "pieces"
 CUSTOMIZATION = ROOT / "test_cost_optimizer_onedata.customization"
+LOCAL_CUSTOMIZATION = ROOT / "test_cost_optimizer_local.customization"
+TEST_CUSTOMIZATION = ROOT / "Test.customization"
 COMPILED_METADATA = ROOT / ".domino" / "compiled_metadata.json"
 DEPENDENCIES_MAP = ROOT / ".domino" / "dependencies_map.json"
 CONFIG = ROOT / "config.toml"
@@ -650,15 +652,48 @@ def main() -> int:
             print(f"  - {problem}")
         return 1
 
-    CUSTOMIZATION.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    CUSTOMIZATION.write_text(text, encoding="utf-8")
+    TEST_CUSTOMIZATION.write_text(text, encoding="utf-8")
     print(
         f"Wrote {CUSTOMIZATION} "
         f"({len(payload['workflowPieces'])} pieces, {len(payload['workflowEdges'])} edges)"
     )
+    write_local_variant(payload)
     write_compiled_metadata()
     return 0
+
+
+def write_local_variant(payload: dict[str, Any]) -> None:
+    """Same graph, but UserInputPiece reads the demo files on disk.
+
+    Local Domino has no OneData space, so the production import would fail at
+    the first node. This copy points at examples/demo_site, which
+    scripts/make_demo_inputs.py can regenerate at any time.
+    """
+    demo = ROOT / "examples" / "demo_site"
+    local = json.loads(json.dumps(payload))
+    for nid, piece in local["workflowPieces"].items():
+        if piece.get("name") != "UserInputPiece":
+            continue
+        inputs = local["workflowPiecesData"][nid]["inputs"]
+        for field, path in (
+            ("load_csv", demo / "load_and_prices.csv"),
+            ("scenario_yaml", demo / "scenario.yaml"),
+        ):
+            if field in inputs:
+                inputs[field] = {
+                    "fromUpstream": False,
+                    "upstreamId": "",
+                    "upstreamArgument": "",
+                    "upstreamValue": "",
+                    "value": str(path),
+                }
+        break
+    LOCAL_CUSTOMIZATION.write_text(
+        json.dumps(local, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"Wrote {LOCAL_CUSTOMIZATION} (local demo inputs)")
 
 
 if __name__ == "__main__":

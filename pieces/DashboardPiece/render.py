@@ -460,9 +460,15 @@ def build_html(
             card("Simple payback", fmt_years(payback), "Undiscounted", payback_tone),
             card("Net present value", fmt_money(npv), "Over the amortisation period", npv_tone),
             card(
+                "Internal rate of return",
+                fmt_num(kpis.get("irr_pct"), 1, "%"),
+                "On the unlevered cashflows",
+                "good" if is_number(kpis.get("irr_pct")) and kpis.get("irr_pct") > 8 else "",
+            ),
+            card(
                 "Saving at P90",
                 fmt_money(kpis.get("p90_annual_savings_eur")),
-                "Pessimistic case, 9 years in 10 do better",
+                "Exceeded in 9 outcomes out of 10",
             ),
             card(
                 "Peak capacity freed",
@@ -500,6 +506,9 @@ def build_html(
         ("Operating cost today", fmt_money(baseline)),
         ("Operating cost with PV and storage", fmt_money(optimised)),
         ("Discounted payback", fmt_years(kpis.get("discounted_payback_years"))),
+        ("IRR at P90", fmt_num(kpis.get("p90_irr_pct"), 1, "%")),
+        ("NPV at P50 / P90", f"{fmt_money(kpis.get('p50_npv_eur'))} / {fmt_money(kpis.get('p90_npv_eur'))}"),
+        ("Probability NPV > 0", fmt_num((kpis.get("probability_npv_positive") or 0) * 100, 0, "%") if is_number(kpis.get("probability_npv_positive")) else "—"),
         ("Saving at P50", fmt_money(kpis.get("p50_annual_savings_eur"))),
         ("Battery cycles per year", fmt_num(kpis.get("battery_annual_equivalent_cycles_est"), 0)),
         ("Expected battery life", fmt_years(kpis.get("battery_estimated_life_years_effective"))),

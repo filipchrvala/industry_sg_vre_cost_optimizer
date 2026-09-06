@@ -1,6 +1,28 @@
 # UC3.2 Industry SG VRE Cost Optimizer (Domino)
 
-Domino piece repository for the MRK cost-optimizer workflow (OneData I/O, PV/battery simulation, KPIs, dashboard).
+Domino piece repository for the MRK cost-optimizer workflow: historical load in, sized PV and battery out, with an AI production forecast and a CFO dashboard.
+
+## Local run without Domino
+
+```bash
+python3 scripts/make_demo_inputs.py
+python3 scripts/run_local.py
+```
+
+Outputs land in `.local_run/`. Open `.local_run/DashboardPiece/dashboard.html`.
+
+## Local Domino on this PC
+
+A Cloud Agent on cursor.com cannot reach Docker Desktop on your laptop. On the machine where Domino is already running:
+
+```powershell
+git checkout cursor/uc32-production-release-cbe4
+powershell -ExecutionPolicy Bypass -File scripts\run_on_local_domino.ps1
+```
+
+Then import `test_cost_optimizer_local.customization` in the Domino UI and run it. That file is the same 23-piece graph as production, with `UserInputPiece` pointed at `examples/demo_site/` instead of OneData.
+
+To let a Cloud Agent drive that Domino itself, start a Cursor self-hosted worker on the same PC (`cursor worker start`) and attach the next agent to it. Until then, the agent and the containers live on different machines.
 
 ## Production layout
 
@@ -12,8 +34,9 @@ Domino piece repository for the MRK cost-optimizer workflow (OneData I/O, PV/bat
 | `.domino/` | Compiled metadata (CI) |
 | `.gitlab-ci.yml` | Harbor build on GitLab |
 | `.github/workflows/` | GHCR build on GitHub (retag from Harbor organize) |
-| `Test.customization` | Workflow graph source (regenerate exports from this) |
+| `scripts/build_workflow.py` | Source of truth for the Domino DAG |
 | `test_cost_optimizer_onedata.customization` | Domino import (GitHub / GHCR) |
+| `test_cost_optimizer_local.customization` | Same graph, demo files on disk (local Domino) |
 | `test_cost_optimizer_onedata.spice.customization` | Domino import (SPICE / Harbor) |
 | `test_cost_optimizer_onedata.json` | Workflows pack export (GHCR metadata) |
 
@@ -56,11 +79,10 @@ Delete failed pipeline runs: `scripts\delete_uc32_failed_pipelines.ps1` (needs M
 ## Regenerate workflow exports
 
 ```powershell
-python scripts/sync_test_customization.py
-python scripts/generate_onedata_customization.py
+python scripts/build_workflow.py
 python scripts/export_workflow_json.py
 ```
 
 ## Pieces
 
-UserInput → CatalogSync → TechnicalLimits → Sizing → CatalogRanker → SolarSim → BatteryStrategy → BatterySim → Simulate → KPI / InvestmentEval → Dashboard.
+UserInput → CatalogSync / TechnicalLimits / Open-Meteo → UC3.4 AI chain (+ SHMÚ calibration) → PvoutToVirtualSolar → Sizing → CatalogRanker / BatteryStrategy → BatterySim → Simulate / Heatmap → KPI / InvestmentEval → Dashboard.
