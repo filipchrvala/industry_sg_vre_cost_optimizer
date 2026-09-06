@@ -8,3 +8,11 @@ streamlit>=1.32
 openpyxl>=3.1
 fsspec>=2023.9
 onedatafilerestclient>=25.0.0
+
+# Predikcia výroby z FVE (UC3.4 AI reťazec)
+xgboost>=2.0
+scikit-learn>=1.3
+joblib>=1.3
+
+# Open-Meteo (počasie) a SHMÚ opendata (merané globálne žiarenie)
+requests>=2.31,<3.0
