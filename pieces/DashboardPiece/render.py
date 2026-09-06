@@ -234,95 +234,185 @@ def render_heatmap(heatmap: dict[str, Any], metric: str = "npv_eur") -> str:
     return f'<div class="panel"><figure>{"".join(parts)}</figure>{legend}</div>'
 
 
-def render_profile(chart: dict[str, Any]) -> str:
-    """Draw the baseline versus optimised load profile as a line chart."""
-    series: Sequence[dict] = chart.get("series") or []
-    x_values = chart.get("x") or []
-    usable = [s for s in series if s.get("values")]
-    if not usable or not x_values:
+COLOUR_WITHOUT = "#b23a3a"
+COLOUR_WITH = "#1a6a8c"
+
+
+def _axis_max(values: Sequence[float]) -> float:
+    high = max((v for v in values if is_number(v)), default=0.0)
+    if high <= 0:
+        return 1.0
+    magnitude = 10 ** max(0, int(math.floor(math.log10(high))))
+    step = magnitude if high / magnitude > 2 else magnitude / 2
+    return math.ceil(high / step) * step
+
+
+def render_consumption(consumption: dict[str, Any] | None, fallback: dict[str, Any] | None) -> str:
+    """Energy bought from the grid, with and without the proposed plant."""
+    data = consumption or {}
+    monthly = data.get("monthly") or {}
+    daily = data.get("daily") or {}
+    totals = data.get("totals") or {}
+
+    if not monthly.get("x") and fallback:
+        series = fallback.get("series") or []
+        if len(series) >= 2 and fallback.get("x"):
+            daily = {
+                "x": fallback["x"],
+                "without": series[0].get("values") or [],
+                "with": series[1].get("values") or [],
+                "unit": series[0].get("unit") or "kWh/deň",
+            }
+
+    if not monthly.get("x") and not daily.get("x"):
         return ""
 
-    # A full year at 15-minute resolution is 35 000 points, far more than an SVG
-    # or a reader can use. Downsample to daily means so the seasonal shape and
-    # the gap between the two scenarios stay legible.
-    target_points = 365
-    length = min(len(x_values), min(len(s["values"]) for s in usable))
-    stride = max(1, length // target_points)
-    buckets = range(0, length, stride)
-
-    reduced = []
-    for s in usable:
-        vals = s["values"]
-        reduced.append(
-            {
-                "name": s.get("name", ""),
-                "values": [
-                    sum(vals[i : i + stride]) / max(1, len(vals[i : i + stride]))
-                    for i in buckets
-                ],
-            }
+    parts = ['<div class="panel">']
+    if totals.get("without_kwh") is not None:
+        parts.append(
+            '<div class="cards" style="margin-bottom:18px">'
+            + card("Bez FVE a batérie", fmt_num(totals["without_kwh"] / 1000.0, 0, "MWh"), "Nákup zo siete za obdobie")
+            + card("S FVE a batériou", fmt_num((totals.get("with_kwh") or 0) / 1000.0, 0, "MWh"), "Nákup zo siete po nasadení", "good")
+            + card(
+                "Ušetrená energia",
+                fmt_num((totals.get("saved_kwh") or 0) / 1000.0, 0, "MWh"),
+                f"{fmt_num(totals.get('saved_pct'), 0, '%')} menej zo siete" if totals.get("saved_pct") is not None else "",
+                "good",
+            )
+            + "</div>"
         )
 
-    n = len(reduced[0]["values"])
-    if n < 2:
-        return ""
-    all_values = [v for s in reduced for v in s["values"] if is_number(v)]
-    if not all_values:
-        return ""
-    high = max(all_values)
-    low = min(0.0, min(all_values))
-    span = high - low if high > low else 1.0
+    if monthly.get("x") and monthly.get("without"):
+        parts.append(_grouped_bars(monthly, title="Mesačná spotreba zo siete"))
+    if daily.get("x") and daily.get("without"):
+        parts.append(_line_pair(daily, title="Denná spotreba zo siete"))
 
-    width, height = 1080, 260
-    pad_l, pad_r, pad_t, pad_b = 66, 16, 18, 34
+    parts.append(
+        '<figcaption>Červená je nákup zo siete bez FVE a batérie. Modrá je ten istý odber '
+        'po nasadení navrhnutého systému. Rozdiel medzi nimi je energia, ktorú už '
+        'nezaplatíte dodávateľovi.</figcaption>'
+    )
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _grouped_bars(series: dict[str, Any], *, title: str) -> str:
+    labels = series.get("x") or []
+    without = [float(v) if is_number(v) else 0.0 for v in (series.get("without") or [])]
+    with_ = [float(v) if is_number(v) else 0.0 for v in (series.get("with") or [])]
+    n = min(len(labels), len(without), len(with_))
+    if n == 0:
+        return ""
+    without, with_, labels = without[:n], with_[:n], labels[:n]
+    high = _axis_max(without + with_)
+
+    width, height = 1080, 280
+    pad_l, pad_r, pad_t, pad_b = 72, 16, 28, 48
     plot_w = width - pad_l - pad_r
     plot_h = height - pad_t - pad_b
-    colours = ["#b23a3a", "#1a6a8c"]
+    group = plot_w / n
+    bar_w = min(22.0, group * 0.32)
 
     parts = [
         f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
-        f'aria-label="Grid draw before and after PV and battery" style="font: 11px sans-serif">'
+        f'aria-label="{esc(title)}" style="font: 11px sans-serif">'
+        f'<text x="{pad_l}" y="16" font-size="13" font-weight="600" fill="#14181f">{esc(title)} (kWh)</text>'
     ]
     for k in range(5):
         y = pad_t + plot_h * k / 4
-        value = high - span * k / 4
+        value = high * (1 - k / 4)
         parts.append(
-            f'<line x1="{pad_l}" y1="{y:.1f}" x2="{width - pad_r}" y2="{y:.1f}" '
-            f'stroke="#e6e9ee"/>'
+            f'<line x1="{pad_l}" y1="{y:.1f}" x2="{width - pad_r}" y2="{y:.1f}" stroke="#e6e9ee"/>'
         )
         parts.append(
             f'<text x="{pad_l - 8}" y="{y + 4:.1f}" text-anchor="end" fill="#5c6675">'
-            f'{value:,.0f}</text>'.replace(",", " ")
+            f"{value:,.0f}</text>".replace(",", " ")
         )
 
-    for idx, s in enumerate(reduced[:2]):
-        points = []
-        for i, value in enumerate(s["values"]):
-            x = pad_l + plot_w * i / (n - 1)
-            y = pad_t + plot_h * (1 - (value - low) / span)
-            points.append(f"{x:.1f},{y:.1f}")
+    for i, (label, a, b) in enumerate(zip(labels, without, with_)):
+        x0 = pad_l + i * group + group / 2
+        ha = plot_h * (a / high)
+        hb = plot_h * (b / high)
         parts.append(
-            f'<polyline fill="none" stroke="{colours[idx % len(colours)]}" '
-            f'stroke-width="1.6" points="{" ".join(points)}"/>'
+            f'<rect x="{x0 - bar_w - 1:.1f}" y="{pad_t + plot_h - ha:.1f}" width="{bar_w:.1f}" '
+            f'height="{ha:.1f}" fill="{COLOUR_WITHOUT}"><title>{esc(label)} bez: {a:,.0f} kWh</title></rect>'.replace(",", " ")
         )
         parts.append(
-            f'<rect x="{pad_l + idx * 190}" y="{height - 14}" width="11" height="11" '
-            f'fill="{colours[idx % len(colours)]}"/>'
+            f'<rect x="{x0 + 1:.1f}" y="{pad_t + plot_h - hb:.1f}" width="{bar_w:.1f}" '
+            f'height="{hb:.1f}" fill="{COLOUR_WITH}"><title>{esc(label)} s FVE+bat: {b:,.0f} kWh</title></rect>'.replace(",", " ")
         )
         parts.append(
-            f'<text x="{pad_l + idx * 190 + 17}" y="{height - 4}" fill="#14181f">'
-            f'{esc(s["name"])}</text>'
+            f'<text x="{x0:.1f}" y="{height - 28}" text-anchor="middle" fill="#5c6675">{esc(label)}</text>'
         )
 
+    parts.append(
+        f'<rect x="{pad_l}" y="{height - 14}" width="11" height="11" fill="{COLOUR_WITHOUT}"/>'
+        f'<text x="{pad_l + 16}" y="{height - 4}" fill="#14181f">Bez FVE a batérie</text>'
+        f'<rect x="{pad_l + 200}" y="{height - 14}" width="11" height="11" fill="{COLOUR_WITH}"/>'
+        f'<text x="{pad_l + 216}" y="{height - 4}" fill="#14181f">S FVE a batériou</text>'
+    )
     parts.append("</svg>")
-    caption = (
-        f'<figcaption>Daily means over the analysed period, {n} points. '
-        f'The area between the lines is the energy no longer bought from the grid.'
-        f'</figcaption>'
+    return "".join(parts)
+
+
+def _line_pair(series: dict[str, Any], *, title: str) -> str:
+    without = [float(v) if is_number(v) else 0.0 for v in (series.get("without") or [])]
+    with_ = [float(v) if is_number(v) else 0.0 for v in (series.get("with") or [])]
+    n = min(len(without), len(with_))
+    if n < 2:
+        return ""
+    without, with_ = without[:n], with_[:n]
+    high = _axis_max(without + with_)
+
+    width, height = 1080, 260
+    pad_l, pad_r, pad_t, pad_b = 72, 16, 28, 36
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+
+    def xy(i: int, value: float) -> tuple[float, float]:
+        x = pad_l + plot_w * i / (n - 1)
+        y = pad_t + plot_h * (1 - value / high)
+        return x, y
+
+    without_pts = [xy(i, v) for i, v in enumerate(without)]
+    with_pts = [xy(i, v) for i, v in enumerate(with_)]
+    fill = " ".join(
+        [f"{x:.1f},{y:.1f}" for x, y in without_pts]
+        + [f"{x:.1f},{y:.1f}" for x, y in reversed(with_pts)]
     )
-    return (
-        f'<div class="panel"><figure>{"".join(parts)}{caption}</figure></div>'
+    without_line = " ".join(f"{x:.1f},{y:.1f}" for x, y in without_pts)
+    with_line = " ".join(f"{x:.1f},{y:.1f}" for x, y in with_pts)
+
+    parts = [
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="{esc(title)}" style="font: 11px sans-serif; margin-top:12px">'
+        f'<text x="{pad_l}" y="16" font-size="13" font-weight="600" fill="#14181f">{esc(title)} (kWh/deň)</text>'
+    ]
+    for k in range(5):
+        y = pad_t + plot_h * k / 4
+        value = high * (1 - k / 4)
+        parts.append(
+            f'<line x1="{pad_l}" y1="{y:.1f}" x2="{width - pad_r}" y2="{y:.1f}" stroke="#e6e9ee"/>'
+        )
+        parts.append(
+            f'<text x="{pad_l - 8}" y="{y + 4:.1f}" text-anchor="end" fill="#5c6675">'
+            f"{value:,.0f}</text>".replace(",", " ")
+        )
+    parts.append(f'<polygon points="{fill}" fill="{COLOUR_WITH}" fill-opacity="0.12"/>')
+    parts.append(
+        f'<polyline fill="none" stroke="{COLOUR_WITHOUT}" stroke-width="1.5" points="{without_line}"/>'
     )
+    parts.append(
+        f'<polyline fill="none" stroke="{COLOUR_WITH}" stroke-width="1.7" points="{with_line}"/>'
+    )
+    parts.append(
+        f'<rect x="{pad_l}" y="{height - 12}" width="11" height="11" fill="{COLOUR_WITHOUT}"/>'
+        f'<text x="{pad_l + 16}" y="{height - 2}" fill="#14181f">Bez FVE a batérie</text>'
+        f'<rect x="{pad_l + 200}" y="{height - 12}" width="11" height="11" fill="{COLOUR_WITH}"/>'
+        f'<text x="{pad_l + 216}" y="{height - 2}" fill="#14181f">S FVE a batériou</text>'
+    )
+    parts.append("</svg>")
+    return "".join(parts)
 
 
 def render_forecast_panel(calibration: dict[str, Any] | None) -> str:
@@ -483,16 +573,21 @@ def build_html(
         f'<div class="cards">{cards}</div>',
     ]
 
+    consumption_html = render_consumption(
+        payload.get("consumption"), payload.get("single_chart")
+    )
+    if consumption_html:
+        sections += [
+            "<h2>Spotreba energie zo siete</h2>",
+            consumption_html,
+        ]
+
     if heatmap:
         sections += [
             "<h2>System size and return</h2>",
             render_heatmap(heatmap),
             render_heatmap_table(heatmap),
         ]
-
-    profile = render_profile(payload.get("single_chart") or {})
-    if profile:
-        sections += ["<h2>Grid draw before and after</h2>", profile]
 
     sections += ["<h2>Production forecast provenance</h2>", render_forecast_panel(calibration)]
 

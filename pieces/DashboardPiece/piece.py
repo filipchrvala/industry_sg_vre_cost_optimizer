@@ -42,6 +42,135 @@ class DashboardPiece(BasePiece):
             return None
         return data if isinstance(data, dict) else None
 
+    @staticmethod
+    def _build_consumption(profile_path: Path, dispatch_path: Path) -> dict:
+        """Daily and monthly grid energy with and without the proposed plant.
+
+        The comparison the board asks for is energy bought from the grid, not
+        site load. Site load barely changes; what changes is how much of it the
+        meter still sees. Interval kWh is summed to the day and the month so
+        the chart shows consumption, not a 15-minute mean that looks like noise.
+        """
+        empty = {
+            "daily": {"x": [], "without": [], "with": []},
+            "monthly": {"x": [], "without": [], "with": []},
+            "totals": {},
+            "legacy_chart": {"title": "", "x": [], "series": []},
+        }
+        frame = DashboardPiece._read_profile(profile_path)
+        if frame is None:
+            frame = DashboardPiece._read_dispatch(dispatch_path)
+        if frame is None or frame.empty:
+            return empty
+
+        frame = frame.copy()
+        frame["datetime"] = pd.to_datetime(frame["datetime"], errors="coerce")
+        frame = frame.dropna(subset=["datetime"]).sort_values("datetime")
+        frame["without_kwh"] = pd.to_numeric(frame["without_kwh"], errors="coerce").fillna(0.0).clip(lower=0.0)
+        frame["with_kwh"] = pd.to_numeric(frame["with_kwh"], errors="coerce").fillna(0.0).clip(lower=0.0)
+
+        daily = (
+            frame.assign(day=frame["datetime"].dt.floor("D"))
+            .groupby("day", as_index=False)[["without_kwh", "with_kwh"]]
+            .sum()
+        )
+        monthly = (
+            frame.assign(month=frame["datetime"].dt.to_period("M").dt.to_timestamp())
+            .groupby("month", as_index=False)[["without_kwh", "with_kwh"]]
+            .sum()
+        )
+
+        without_total = float(frame["without_kwh"].sum())
+        with_total = float(frame["with_kwh"].sum())
+        totals = {
+            "without_kwh": round(without_total, 1),
+            "with_kwh": round(with_total, 1),
+            "saved_kwh": round(without_total - with_total, 1),
+            "saved_pct": round((1.0 - with_total / without_total) * 100.0, 1) if without_total > 0 else None,
+            "days": int(len(daily)),
+        }
+
+        legacy = {
+            "title": "Spotreba zo siete: bez FVE a batérie vs s FVE a batériou",
+            "resolution": "daily_sum_kwh",
+            "x": daily["day"].dt.strftime("%Y-%m-%d").tolist(),
+            "series": [
+                {
+                    "name": "Bez FVE a batérie",
+                    "unit": "kWh/deň",
+                    "values": daily["without_kwh"].round(1).tolist(),
+                },
+                {
+                    "name": "S FVE a batériou",
+                    "unit": "kWh/deň",
+                    "values": daily["with_kwh"].round(1).tolist(),
+                },
+            ],
+        }
+        return {
+            "daily": {
+                "x": daily["day"].dt.strftime("%Y-%m-%d").tolist(),
+                "without": daily["without_kwh"].round(1).tolist(),
+                "with": daily["with_kwh"].round(1).tolist(),
+                "unit": "kWh/deň",
+            },
+            "monthly": {
+                "x": monthly["month"].dt.strftime("%Y-%m").tolist(),
+                "without": monthly["without_kwh"].round(1).tolist(),
+                "with": monthly["with_kwh"].round(1).tolist(),
+                "unit": "kWh/mesiac",
+            },
+            "totals": totals,
+            "legacy_chart": legacy,
+        }
+
+    @staticmethod
+    def _read_profile(path: Path) -> pd.DataFrame | None:
+        if not path.is_file():
+            return None
+        raw = pd.read_csv(path)
+        if "datetime" not in raw.columns:
+            return None
+        without = next(
+            (c for c in ("baseline_energy_kwh_interval", "baseline_kwh") if c in raw.columns),
+            None,
+        )
+        with_ = next(
+            (c for c in ("optimized_energy_kwh_interval", "optimized_kwh") if c in raw.columns),
+            None,
+        )
+        if without is None or with_ is None:
+            return None
+        return raw[["datetime", without, with_]].rename(
+            columns={without: "without_kwh", with_: "with_kwh"}
+        )
+
+    @staticmethod
+    def _read_dispatch(path: Path) -> pd.DataFrame | None:
+        """Fall back to BatterySim dispatch when SimulatePiece left no profile."""
+        if not path.is_file():
+            return None
+        raw = pd.read_csv(path)
+        if "datetime" not in raw.columns or "load_kw" not in raw.columns:
+            return None
+        if "pv_battery_grid_kw" not in raw.columns:
+            return None
+        dt_h = 0.25
+        if len(raw) >= 2:
+            stamps = pd.to_datetime(raw["datetime"], errors="coerce")
+            step = stamps.diff().dt.total_seconds().median()
+            if pd.notna(step) and step > 0:
+                dt_h = float(step) / 3600.0
+        load = pd.to_numeric(raw["load_kw"], errors="coerce").fillna(0.0).clip(lower=0.0)
+        grid = pd.to_numeric(raw["pv_battery_grid_kw"], errors="coerce").fillna(0.0).clip(lower=0.0)
+        return pd.DataFrame(
+            {
+                "datetime": raw["datetime"],
+                "without_kwh": load * dt_h,
+                "with_kwh": grid * dt_h,
+            }
+        )
+
     def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
         _stage = None
         _piece_out = None
@@ -88,61 +217,16 @@ class DashboardPiece(BasePiece):
             inv = (inv_df.to_dict(orient="records") or [{}])[0]
             art = rep.get("artifacts") or {}
             profile_path = Path(art.get("baseline_vs_optimized_profile_csv") or "")
-            chart = {"title": "Priebeh spotreby energie: baseline vs FVE+batéria", "x": [], "series": []}
-            if profile_path.is_file():
-                prof = pd.read_csv(profile_path)
-                dt_col = "datetime" if "datetime" in prof.columns else prof.columns[0]
-                base_col = next(
-                    (c for c in prof.columns if "baseline" in c.lower() and "kwh" in c.lower()),
-                    "baseline_energy_kwh_interval",
-                )
-                opt_col = next(
-                    (c for c in prof.columns if "optim" in c.lower() and "kwh" in c.lower()),
-                    "optimized_energy_kwh_interval",
-                )
-                # A year at 15-minute resolution is 35 000 points per series, which
-                # made this payload several megabytes and is finer than any chart
-                # can show. Daily means keep the seasonal shape; the untouched
-                # interval data stays in the profile CSV for anyone who needs it.
-                if dt_col in prof.columns:
-                    stamps = pd.to_datetime(prof[dt_col], errors="coerce")
-                    if stamps.notna().any() and len(prof) > 800:
-                        prof = (
-                            prof.assign(_day=stamps.dt.floor("D"))
-                            .groupby("_day", as_index=False)
-                            .mean(numeric_only=True)
-                            .rename(columns={"_day": dt_col})
-                        )
-
-                chart = {
-                    "title": "Priebeh spotreby energie: baseline vs FVE+batéria",
-                    "resolution": "daily_mean",
-                    "x": prof[dt_col].astype(str).tolist() if dt_col in prof.columns else [],
-                    "series": [
-                        {
-                            "name": "Bez FVE a batérie",
-                            "unit": "kWh/interval",
-                            "values": pd.to_numeric(
-                                prof[base_col] if base_col in prof.columns else 0,
-                                errors="coerce",
-                            )
-                            .fillna(0.0)
-                            .round(4)
-                            .tolist(),
-                        },
-                        {
-                            "name": "S FVE a batériou",
-                            "unit": "kWh/interval",
-                            "values": pd.to_numeric(
-                                prof[opt_col] if opt_col in prof.columns else 0,
-                                errors="coerce",
-                            )
-                            .fillna(0.0)
-                            .round(4)
-                            .tolist(),
-                        },
-                    ],
-                }
+            consumption = self._build_consumption(
+                profile_path=profile_path,
+                dispatch_path=Path((input_data.battery_dispatch_csv or "").strip() or ""),
+            )
+            # Kept for older consumers of dashboard_data.json.
+            chart = consumption.get("legacy_chart") or {
+                "title": "Spotreba zo siete: bez FVE a batérie vs s FVE a batériou",
+                "x": [],
+                "series": [],
+            }
 
             payload = {
                 "format": "cfo_finance_dashboard_v1",
@@ -173,6 +257,7 @@ class DashboardPiece(BasePiece):
                     "finance_npv_after_finance_eur": ((rep.get("finance_layer") or {}).get("npv_after_finance_eur")),
                 },
                 "single_chart": chart,
+                "consumption": consumption,
                 "battery_lifetime_assessment": (rep.get("battery_lifetime_assessment") or {}),
                 "c_rate_sweep": (rep.get("c_rate_sweep") or []),
                 "trading_only_analysis": (rep.get("trading_only_analysis") or {}),
