@@ -131,6 +131,51 @@ def synthetic_pv_kw(
     return pd.Series(np.clip(raw, 0.0, installed_kwp * 1.15), index=dt.index, name="pv_kw")
 
 
+def load_pv_profile_per_kwp(
+    path: Path | str | None,
+    df: pd.DataFrame,
+    *,
+    reference_kwp: float | None = None,
+) -> np.ndarray | None:
+    """Read the AI-forecast production shape normalised to one installed kWp.
+
+    PvoutToVirtualSolarPiece writes ``pv_kw_per_kwp`` alongside the absolute
+    profile. Older files carry only ``pv_kw``, which is divided by the reference
+    size it was generated at. Returns None when nothing usable is available, so
+    callers keep working on the synthetic fallback rather than failing.
+    """
+    if not path:
+        return None
+    p = Path(path)
+    if not p.is_file():
+        return None
+
+    raw = pd.read_csv(p)
+    if "pv_kw_per_kwp" in raw.columns:
+        series = pd.to_numeric(raw["pv_kw_per_kwp"], errors="coerce")
+    elif "pv_kw" in raw.columns:
+        if not reference_kwp or reference_kwp <= 0:
+            return None
+        series = pd.to_numeric(raw["pv_kw"], errors="coerce") / float(reference_kwp)
+    else:
+        return None
+
+    if "datetime" in raw.columns:
+        indexed = pd.Series(
+            series.to_numpy(), index=pd.to_datetime(raw["datetime"], errors="coerce")
+        )
+        indexed = indexed[~indexed.index.isna()]
+        indexed = indexed[~indexed.index.duplicated(keep="first")]
+        aligned = indexed.reindex(pd.to_datetime(df["datetime"]))
+        if aligned.notna().sum() == 0:
+            return None
+        return aligned.fillna(0.0).clip(lower=0.0).to_numpy(dtype=float)
+
+    if len(series) != len(df):
+        return None
+    return series.fillna(0.0).clip(lower=0.0).to_numpy(dtype=float)
+
+
 # --- batéria (ekonomický dispatch: LCOE FVE vs sieť vs náklad kWh z batérie) ---
 
 
@@ -1134,8 +1179,17 @@ def _sim_bundle(
     df: pd.DataFrame,
     *,
     battery_strategy_thresholds: dict[str, float] | None = None,
+    pv_profile_per_kwp: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Jedna plná ekonomická simulácia (baseline + scenáre) pre danú konfiguráciu."""
+    """Jedna plná ekonomická simulácia (baseline + scenáre) pre danú konfiguráciu.
+
+    ``pv_profile_per_kwp`` is the AI-forecast production shape normalised to one
+    installed kWp, aligned to ``df``. When supplied, every scenario scales it by
+    the trial size instead of falling back to ``synthetic_pv_kw``. The synthetic
+    profile is a smooth sine that ignores weather, latitude and orientation, so
+    self-consumption and peak coincidence came out systematically wrong; sizing
+    and payback are only as good as the shape they are derived from.
+    """
     dt_h = infer_timestep_hours(df)
     strat = battery_strategy_thresholds or {}
     kw_dispatch = {
@@ -1206,8 +1260,13 @@ def _sim_bundle(
             dr,
         )
         if pv_on and installed_kwp > 0:
-            pv_ser = synthetic_pv_kw(df["datetime"], installed_kwp, yield_kwh_per_kwp_year=yield_kwp)
-            pv_kw = pv_ser.values
+            if pv_profile_per_kwp is not None:
+                pv_kw = np.asarray(pv_profile_per_kwp, dtype=float) * installed_kwp
+            else:
+                pv_ser = synthetic_pv_kw(
+                    df["datetime"], installed_kwp, yield_kwh_per_kwp_year=yield_kwp
+                )
+                pv_kw = pv_ser.values
         else:
             pv_kw = np.zeros(n)
 
@@ -1318,6 +1377,7 @@ def _auto_optimize_sizes(
     cfg: dict[str, Any],
     df: pd.DataFrame,
     bounds_override: dict[str, Any] | None = None,
+    pv_profile_per_kwp: np.ndarray | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Prehľadáva (kWp, kWh) a vracia najlepšiu konfiguráciu + log.
 
@@ -1415,7 +1475,7 @@ def _auto_optimize_sizes(
         trial = copy.deepcopy(base)
         trial.setdefault("pv", {})["installed_kwp"] = float(kwp)
         trial.setdefault("battery", {})["energy_kwh"] = float(kwh)
-        bundle = _sim_bundle(trial, df)
+        bundle = _sim_bundle(trial, df, pv_profile_per_kwp=pv_profile_per_kwp)
         score, fin = _score_financials(bundle, dr=dr, years=years, objective=objective)
         return score, fin, trial
 
@@ -1454,6 +1514,9 @@ def _auto_optimize_sizes(
 
     log = {
         "bounds": bounds,
+        "pv_profile_source": (
+            "ai_forecast" if pv_profile_per_kwp is not None else "synthetic_sine_fallback"
+        ),
         "objective": objective,
         "require_pv": require_pv,
         "require_battery": require_battery,

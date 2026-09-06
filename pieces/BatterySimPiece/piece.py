@@ -115,6 +115,19 @@ class BatterySimPiece(BasePiece):
                     f"virtual_solar_csv rows ({len(solar_series)}) must match load_csv rows ({len(df)})"
                 )
 
+            # The forecast is produced before sizing runs, so it carries the
+            # reference array size. Dispatching it unscaled would simulate a
+            # different plant than the one being costed.
+            sized_kwp = float((cfg.get("pv") or {}).get("installed_kwp", 0.0) or 0.0)
+            if "pv_kw_per_kwp" in solar_df.columns and sized_kwp > 0:
+                per_kwp = (
+                    pd.to_numeric(solar_df["pv_kw_per_kwp"], errors="coerce")
+                    .fillna(0.0)
+                    .clip(lower=0.0)
+                )
+                solar_series = per_kwp * sized_kwp
+                _log(f"Rescaled AI forecast to the sized array: {sized_kwp:.1f} kWp")
+
             dt_h = sim.infer_timestep_hours(df)
             price = sim.build_price_series(df, cfg).values.astype(float)
             load_kw = df["load_kw"].astype(float).values

@@ -78,9 +78,22 @@ class SizingOptimizationPiece(BasePiece):
                 f"max_kwh={technical_limits.get('max_kwh')}"
             )
 
+            pv_profile = sim.load_pv_profile_per_kwp(
+                input_data.virtual_solar_csv,
+                df,
+                reference_kwp=float((cfg.get("pv") or {}).get("installed_kwp", 0.0) or 0.0),
+            )
+            _log(
+                "PV profile for the size sweep: "
+                + ("AI forecast" if pv_profile is not None else "synthetic fallback")
+            )
+
             if mode == "auto":
                 final_cfg, auto_log = sim._auto_optimize_sizes(
-                    final_cfg, df, bounds_override=technical_limits
+                    final_cfg,
+                    df,
+                    bounds_override=technical_limits,
+                    pv_profile_per_kwp=pv_profile,
                 )
             _log(f"Resolved selection_mode={mode}, rows={len(df)}")
         except Exception as exc:

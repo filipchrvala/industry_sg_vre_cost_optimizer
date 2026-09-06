@@ -1,0 +1,35 @@
+{
+  "name": "SizingHeatmapPiece",
+  "description": "Sweep PV and battery sizes over the AI production forecast and report savings, NPV and payback for every combination as a heatmap grid.",
+  "dependencies_group": "0",
+  "dependency": {
+    "requirements_file": "requirements_0.txt"
+  },
+  "container_resources": {
+    "requests": {
+      "cpu": 500,
+      "memory": 512
+    },
+    "limits": {
+      "cpu": 2000,
+      "memory": 2048
+    }
+  },
+  "tags": [
+    "Sizing",
+    "Heatmap",
+    "Economics"
+  ],
+  "style": {
+    "node_label": "Sizing Heatmap",
+    "node_type": "default",
+    "node_style": {
+      "backgroundColor": "#ebebeb"
+    },
+    "useIcon": true,
+    "icon_class_name": "fa-solid:table-cells",
+    "iconStyle": {
+      "cursor": "pointer"
+    }
+  }
+}

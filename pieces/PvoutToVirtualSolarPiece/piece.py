@@ -95,6 +95,15 @@ class PvoutToVirtualSolarPiece(BasePiece):
         if input_data.load_csv:
             forecast, report = self._align_to_load(forecast, Path(str(input_data.load_csv)), report)
 
+        # Sizing sweeps hundreds of array sizes against this one forecast, so the
+        # shape is also published per installed kWp. Rescaling it beats rerunning
+        # the model chain per candidate and keeps every candidate on the same
+        # weather.
+        reference_kwp = self._reference_kwp(input_data.scenario_yaml)
+        if reference_kwp > 0:
+            forecast["pv_kw_per_kwp"] = (forecast["pv_kw"] / reference_kwp).round(6)
+        report["reference_kwp"] = reference_kwp
+
         out_dir = Path(self.results_path or ".")
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / "virtual_solar.csv"
@@ -123,7 +132,23 @@ class PvoutToVirtualSolarPiece(BasePiece):
             message=message,
             virtual_solar_csv=str(out_path),
             coverage_report_json=str(report_path),
+            reference_kwp=reference_kwp,
         )
+
+    @staticmethod
+    def _reference_kwp(scenario_yaml: str | None) -> float:
+        if not scenario_yaml:
+            return 0.0
+        path = Path(str(scenario_yaml))
+        if not path.is_file():
+            return 0.0
+        try:
+            import yaml
+
+            cfg = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            return float((cfg.get("pv") or {}).get("installed_kwp", 0.0) or 0.0)
+        except Exception:
+            return 0.0
 
     @staticmethod
     def _align_to_load(

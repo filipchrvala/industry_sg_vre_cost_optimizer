@@ -20,11 +20,24 @@ class InputModel(BaseModel):
         default=1.0,
         description="Scale from ShmuCalibrationPiece; 1.0 leaves the forecast untouched.",
     )
+    scenario_yaml: Optional[str] = Field(
+        default=None,
+        description=(
+            "Scenario the forecast was generated for. Its pv.installed_kwp is the "
+            "reference size used to normalise the profile per kWp, so sizing can "
+            "rescale the same shape to any candidate array."
+        ),
+    )
 
 
 class OutputModel(BaseModel):
     message: str
-    virtual_solar_csv: str = Field(description="virtual_solar.csv for BatterySimPiece")
+    virtual_solar_csv: str = Field(
+        description="datetime, pv_kw and pv_kw_per_kwp for the dispatch and sizing pieces"
+    )
     coverage_report_json: str = Field(
         description="Row counts, alignment result and the applied scale factor."
+    )
+    reference_kwp: float = Field(
+        description="Installed kWp the pv_kw column corresponds to."
     )

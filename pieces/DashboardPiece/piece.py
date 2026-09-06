@@ -9,6 +9,7 @@ import pandas as pd
 from domino.base_piece import BasePiece
 
 from .models import InputModel, OutputModel
+from .render import build_html
 
 try:
     from common import onedata_io as od
@@ -21,6 +22,25 @@ except ModuleNotFoundError:
 
 class DashboardPiece(BasePiece):
     """Build finance-focused dashboard payload for CFO decisions."""
+
+    @staticmethod
+    def _read_json(path: str | None) -> dict | None:
+        """Optional side inputs must never sink the dashboard.
+
+        The heatmap, calibration report and equipment ranking each enrich the
+        output but none is essential, and a run without SHMÚ coverage or with a
+        catalog outage should still produce a report.
+        """
+        if not path:
+            return None
+        p = Path(str(path).strip())
+        if not p.is_file() or p.stat().st_size == 0:
+            return None
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        return data if isinstance(data, dict) else None
 
     def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
         _stage = None
@@ -143,10 +163,38 @@ class DashboardPiece(BasePiece):
                 },
             }
 
+            heatmap = self._read_json(input_data.heatmap_json)
+            calibration = self._read_json(input_data.calibration_json)
+            ranking = self._read_json(input_data.catalog_ranked_recommendation_json)
+            if heatmap:
+                payload["sizing_heatmap"] = heatmap
+            if calibration:
+                payload["forecast_calibration"] = calibration
+            if ranking:
+                payload["equipment_ranking"] = ranking
+
             out_json = out_dir / "dashboard_data.json"
             out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
             _log(f"Wrote dashboard JSON: {out_json}; kpi_rows={len(kpi_df)}")
-            _piece_out = OutputModel(dashboard_data_json=str(out_json))
+
+            site_name = str(((rep.get("meta") or {}).get("site_name") or "")).strip()
+            out_html = out_dir / "dashboard.html"
+            out_html.write_text(
+                build_html(
+                    payload,
+                    heatmap=heatmap,
+                    calibration=calibration,
+                    ranking=ranking,
+                    site_name=site_name,
+                ),
+                encoding="utf-8",
+            )
+            _log(f"Wrote dashboard HTML: {out_html}")
+            self.display_result = {"file_type": "html", "file_path": str(out_html)}
+
+            _piece_out = OutputModel(
+                dashboard_data_json=str(out_json), dashboard_html=str(out_html)
+            )
         except Exception as exc:
             (out_dir / "dashboard_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             _log(f"ERROR during dashboard assembly: {exc}")
