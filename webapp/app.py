@@ -223,11 +223,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             html = dash.read_bytes()
             banner = (
-                b'<div style="position:sticky;top:0;z-index:20;background:#14181f;color:#fff;'
-                b'padding:8px 16px;font:13px/1.4 sans-serif;display:flex;justify-content:space-between;gap:12px;">'
-                b'<span>Lokálny beh UC3.2</span>'
-                b'<a href="/" style="color:#9ad4ef">Nový výpočet</a></div>'
-            )
+                '<div style="position:sticky;top:0;z-index:20;background:#14181f;color:#fff;'
+                'padding:8px 16px;font:13px/1.4 sans-serif;display:flex;justify-content:space-between;gap:12px;">'
+                '<span>Lokálny beh UC3.2</span>'
+                '<a href="/" style="color:#9ad4ef">Nový výpočet</a></div>'
+            ).encode("utf-8")
             if b"<body>" in html:
                 html = html.replace(b"<body>", b"<body>" + banner, 1)
             self._send(200, html, "text/html; charset=utf-8")
