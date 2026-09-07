@@ -125,8 +125,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -228,8 +228,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -331,8 +331,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -448,8 +448,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -620,8 +620,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -799,7 +799,6 @@
                     "type": "string"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "Optional outputs (e.g., normalized dataset URI, fitted scaler params).",
                     "title": "Artifacts",
                     "type": "object"
@@ -973,7 +972,6 @@
                     "type": "string"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "Optional outputs (e.g., cleaned dataset URI, dropped rows stats).",
                     "title": "Artifacts",
                     "type": "object"
@@ -1162,7 +1160,6 @@
                             "anyOf": [
                                 {
                                     "items": {
-                                        "additionalProperties": true,
                                         "type": "object"
                                     },
                                     "type": "array"
@@ -1413,7 +1410,6 @@
                     "type": "string"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "`input_payload` on no-op; `per_model` mapping `{model_id: {forecast, per_horizon, metadata, debug?}}` plus aggregate `stage_summaries` when stages are used.",
                     "title": "Artifacts",
                     "type": "object"
@@ -1526,8 +1522,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -1623,8 +1619,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -1794,7 +1790,6 @@
                     "title": "Decision Path"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "Optional outputs (e.g., selected model id/version, decision rationale).",
                     "title": "Artifacts",
                     "type": "object"
@@ -2289,7 +2284,6 @@
                     "title": "Model Spec"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "Optional outputs (e.g., trained corrector URI, evaluation metrics).",
                     "title": "Artifacts",
                     "type": "object"
@@ -2297,6 +2291,101 @@
             },
             "required": [
                 "message"
+            ],
+            "title": "OutputModel",
+            "type": "object"
+        },
+        "secrets_schema": {}
+    },
+    "PvoutModelFeatureSelectPiece": {
+        "name": "PvoutModelFeatureSelectPiece",
+        "dependency": {
+            "requirements_file": "requirements_0.txt",
+            "dockerfile": null
+        },
+        "tags": [
+            "somes",
+            "pv",
+            "uc3.4-adapter"
+        ],
+        "style": {
+            "node_label": "PVOUT Feature Select",
+            "node_type": "default",
+            "node_style": {
+                "backgroundColor": "#ebebeb"
+            },
+            "useIcon": true,
+            "icon_class_name": "fa-solid:filter",
+            "iconStyle": {
+                "cursor": "pointer"
+            }
+        },
+        "description": "Split UC3.4 feature_columns into model features + datetime_column without removing datetime from CSV.",
+        "dependencies_group": "0",
+        "source_url": "https://github.com/scditech/uc3_3_somes/tree/main/pieces/PvoutModelFeatureSelectPiece",
+        "input_schema": {
+            "properties": {
+                "data_path": {
+                    "description": "Passthrough preprocessed/normalized CSV path (keeps datetime column).",
+                    "title": "Data Path",
+                    "type": "string"
+                },
+                "feature_columns": {
+                    "description": "Feature list from UC3.4 preprocess/decider (may include datetime).",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Feature Columns",
+                    "type": "array"
+                },
+                "target_column": {
+                    "default": "PVOUT",
+                    "description": "Target column name.",
+                    "title": "Target Column",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "data_path"
+            ],
+            "title": "InputModel",
+            "type": "object"
+        },
+        "output_schema": {
+            "properties": {
+                "message": {
+                    "title": "Message",
+                    "type": "string"
+                },
+                "data_path": {
+                    "description": "Same CSV path; datetime column remains in the file.",
+                    "title": "Data Path",
+                    "type": "string"
+                },
+                "feature_columns": {
+                    "description": "Numeric/model feature columns for PVOUT train + inference.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Feature Columns",
+                    "type": "array"
+                },
+                "datetime_column": {
+                    "default": "datetime",
+                    "description": "Datetime column name for InferencePiece (still present in CSV).",
+                    "title": "Datetime Column",
+                    "type": "string"
+                },
+                "target_column": {
+                    "default": "PVOUT",
+                    "title": "Target Column",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "message",
+                "data_path",
+                "feature_columns"
             ],
             "title": "OutputModel",
             "type": "object"
@@ -2589,7 +2678,6 @@
                     "title": "Model Spec"
                 },
                 "artifacts": {
-                    "additionalProperties": true,
                     "description": "Optional outputs (e.g., trained model URI, training metrics).",
                     "title": "Artifacts",
                     "type": "object"
@@ -2597,101 +2685,6 @@
             },
             "required": [
                 "message"
-            ],
-            "title": "OutputModel",
-            "type": "object"
-        },
-        "secrets_schema": {}
-    },
-    "PvoutModelFeatureSelectPiece": {
-        "name": "PvoutModelFeatureSelectPiece",
-        "dependency": {
-            "requirements_file": "requirements_0.txt",
-            "dockerfile": null
-        },
-        "tags": [
-            "somes",
-            "pv",
-            "uc3.4-adapter"
-        ],
-        "style": {
-            "node_label": "PVOUT Feature Select",
-            "node_type": "default",
-            "node_style": {
-                "backgroundColor": "#ebebeb"
-            },
-            "useIcon": true,
-            "icon_class_name": "fa-solid:filter",
-            "iconStyle": {
-                "cursor": "pointer"
-            }
-        },
-        "description": "Split UC3.4 feature_columns into model features + datetime_column without removing datetime from CSV.",
-        "dependencies_group": "0",
-        "source_url": "https://github.com/scditech/uc3_3_somes/tree/main/pieces/PvoutModelFeatureSelectPiece",
-        "input_schema": {
-            "properties": {
-                "data_path": {
-                    "description": "Passthrough preprocessed/normalized CSV path (keeps datetime column).",
-                    "title": "Data Path",
-                    "type": "string"
-                },
-                "feature_columns": {
-                    "description": "Feature list from UC3.4 preprocess/decider (may include datetime).",
-                    "items": {
-                        "type": "string"
-                    },
-                    "title": "Feature Columns",
-                    "type": "array"
-                },
-                "target_column": {
-                    "default": "PVOUT",
-                    "description": "Target column name.",
-                    "title": "Target Column",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "data_path"
-            ],
-            "title": "InputModel",
-            "type": "object"
-        },
-        "output_schema": {
-            "properties": {
-                "message": {
-                    "title": "Message",
-                    "type": "string"
-                },
-                "data_path": {
-                    "description": "Same CSV path; datetime column remains in the file.",
-                    "title": "Data Path",
-                    "type": "string"
-                },
-                "feature_columns": {
-                    "description": "Numeric/model feature columns for PVOUT train + inference.",
-                    "items": {
-                        "type": "string"
-                    },
-                    "title": "Feature Columns",
-                    "type": "array"
-                },
-                "datetime_column": {
-                    "default": "datetime",
-                    "description": "Datetime column name for InferencePiece (still present in CSV).",
-                    "title": "Datetime Column",
-                    "type": "string"
-                },
-                "target_column": {
-                    "default": "PVOUT",
-                    "title": "Target Column",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "message",
-                "data_path",
-                "feature_columns"
             ],
             "title": "OutputModel",
             "type": "object"
@@ -2782,7 +2775,6 @@
                 "pvout_model": {
                     "description": "Ready-to-bind InferencePiece.pvout_model entry with stages: baseline (price_level) → inject PVOUT_PRED → error correction.",
                     "items": {
-                        "additionalProperties": true,
                         "type": "object"
                     },
                     "title": "Pvout Model",
@@ -3073,8 +3065,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -3230,8 +3222,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -3416,8 +3408,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -3543,8 +3535,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -3651,8 +3643,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },
@@ -3770,8 +3762,8 @@
                             "type": "null"
                         }
                     ],
-                    "default": "onedata:///FilipsSpace/cost_optimizer/outputs",
-                    "description": "OneData base dir for run outputs, e.g. onedata:///FilipsSpace/cost_optimizer/outputs",
+                    "default": null,
+                    "description": "Optional OneData base dir for run outputs (empty keeps results on local Domino storage)",
                     "title": "Onedata Output Dir"
                 }
             },

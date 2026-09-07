@@ -1,15 +1,6 @@
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-*.egg-info/
 .venv/
 venv/
-tests/__pycache__/
-docker_battery_test/
-user_input/
-*.docx
-!docs/*.docx
 .local_run/
-.local_web/
+.local_run_30d/
