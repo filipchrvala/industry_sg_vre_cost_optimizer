@@ -18,6 +18,11 @@ except ModuleNotFoundError:
     except ModuleNotFoundError:
         od = None
 
+try:
+    from common.okte_prices import align_okte_to_load, fetch_okte_dam_prices
+except ModuleNotFoundError:
+    from pieces.common.okte_prices import align_okte_to_load, fetch_okte_dam_prices
+
 
 class UserInputPiece(BasePiece):
     """Validate and pass-through user inputs for downstream pieces."""
@@ -100,6 +105,24 @@ class UserInputPiece(BasePiece):
             ).fillna(med)
         return repaired, filled
 
+    @staticmethod
+    def _coerce_price_column(df: pd.DataFrame) -> pd.DataFrame:
+        if "price_eur_per_kwh" in df.columns:
+            return df
+        if "price_eur_kwh" in df.columns:
+            return df.rename(columns={"price_eur_kwh": "price_eur_per_kwh"})
+        if "price_eur_mwh" in df.columns:
+            out = df.copy()
+            out["price_eur_per_kwh"] = pd.to_numeric(out["price_eur_mwh"], errors="coerce") / 1000.0
+            return out
+        return df
+
+    @staticmethod
+    def _has_usable_prices(df: pd.DataFrame) -> bool:
+        if "price_eur_per_kwh" not in df.columns:
+            return False
+        return bool(pd.to_numeric(df["price_eur_per_kwh"], errors="coerce").notna().any())
+
     def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
         _stage = None
         _piece_out = None
@@ -142,9 +165,11 @@ class UserInputPiece(BasePiece):
         df = self._normalize_datetime_column(self._read_csv_auto(load_csv))
         cols = [c.strip().lower().replace(" ", "_") for c in df.columns]
         df.columns = cols
+        df = self._coerce_price_column(df)
         has_load_kw = "load_kw" in df.columns
-        has_price = "price_eur_per_kwh" in df.columns
+        has_price = self._has_usable_prices(df)
         merge_mode = "single_csv"
+        price_source = "load_csv"
         overlap_rows = None
         if has_load_kw and has_price:
             merged = df.copy()
@@ -157,16 +182,9 @@ class UserInputPiece(BasePiece):
             merged.to_csv(merged_path, index=False)
             merge_mode = "single_csv_normalized"
         else:
-            # Case B: two CSV inputs (consumption + prices) -> merge to one normalized file.
-            if prices_csv is None or not prices_csv.is_file():
-                raise ValueError(
-                    "Provide either single CSV with load_kw + price_eur_per_kwh, or two CSV files (load_csv + prices_csv)."
-                )
-
-            # Build load series
             load_df = df.copy()
             if "load_kw" not in load_df.columns:
-                load_candidates = [c for c in load_df.columns if c not in {"datetime"}]
+                load_candidates = [c for c in load_df.columns if c not in {"datetime", "price_eur_per_kwh"}]
                 if not load_candidates:
                     raise ValueError("Load CSV must contain load_kw or numeric consumption columns.")
                 load_df["load_kw"] = (
@@ -175,22 +193,33 @@ class UserInputPiece(BasePiece):
             load_df = load_df[["datetime", "load_kw"]]
             load_df = self._collapse_duplicate_timestamps(load_df)
 
-            # Build price series
-            p = self._normalize_datetime_column(self._read_csv_auto(prices_csv))
-            p.columns = [c.strip().lower().replace(" ", "_") for c in p.columns]
-            if "price_eur_per_kwh" not in p.columns:
-                if "price_eur_kwh" in p.columns:
-                    p = p.rename(columns={"price_eur_kwh": "price_eur_per_kwh"})
-                else:
-                    raise ValueError("Prices CSV must contain price_eur_per_kwh (or price_eur_kwh).")
-            p = p[["datetime", "price_eur_per_kwh"]]
-            p = self._collapse_duplicate_timestamps(p)
+            if prices_csv is not None and prices_csv.is_file():
+                p = self._normalize_datetime_column(self._read_csv_auto(prices_csv))
+                p.columns = [c.strip().lower().replace(" ", "_") for c in p.columns]
+                p = self._coerce_price_column(p)
+                if "price_eur_per_kwh" not in p.columns:
+                    raise ValueError("Prices CSV must contain price_eur_per_kwh (or price_eur_kwh / price_eur_mwh).")
+                p = p[["datetime", "price_eur_per_kwh"]]
+                p = self._collapse_duplicate_timestamps(p)
+                merged = load_df.merge(p, on="datetime", how="inner").dropna(subset=["price_eur_per_kwh"])
+                if merged.empty:
+                    raise ValueError("No overlapping datetimes between load CSV and prices CSV.")
+                merge_mode = "two_csv_merged"
+                price_source = "prices_csv"
+                overlap_rows = int(len(merged))
+            else:
+                _log(
+                    f"No uploaded prices; fetching OKTE DAM for "
+                    f"{load_df['datetime'].min()} .. {load_df['datetime'].max()}"
+                )
+                okte = fetch_okte_dam_prices(load_df["datetime"].min(), load_df["datetime"].max())
+                merged = align_okte_to_load(load_df, okte)
+                merge_mode = "okte_dam"
+                price_source = "okte_dam"
+                overlap_rows = int(len(merged))
+                okte.to_csv(out_dir / "okte_dam_prices.csv", index=False)
+                _log(f"OKTE DAM rows={len(okte)} aligned_to_load={len(merged)}")
 
-            merged = load_df.merge(p, on="datetime", how="inner").dropna(subset=["price_eur_per_kwh"])
-            if merged.empty:
-                raise ValueError("No overlapping datetimes between load CSV and prices CSV.")
-            merge_mode = "two_csv_merged"
-            overlap_rows = int(len(merged))
             merged_path = out_dir / "load_and_prices_merged.csv"
             merged.to_csv(merged_path, index=False)
 
@@ -210,6 +239,7 @@ class UserInputPiece(BasePiece):
         summary = {
             "message": "User input validated",
             "merge_mode": merge_mode,
+            "price_source": price_source,
             "input_paths": {
                 "load_csv": str(load_csv),
                 "prices_csv": str(prices_csv) if prices_csv else "",

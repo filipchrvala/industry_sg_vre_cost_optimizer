@@ -780,13 +780,13 @@
                     "type": "string"
                 },
                 "load_csv": {
-                    "description": "Path to historical load CSV",
+                    "description": "Path to historical load CSV (datetime + load_kw; price_eur_per_kwh optional)",
                     "title": "Load Csv",
                     "type": "string"
                 },
                 "prices_csv": {
                     "default": "",
-                    "description": "Optional path to historical prices CSV",
+                    "description": "Optional path to a prices CSV (datetime + price_eur_per_kwh). If omitted and load_csv has no price column, UserInputPiece pulls OKTE day-ahead prices for the same datetime horizon as the load.",
                     "title": "Prices Csv",
                     "type": "string"
                 },
