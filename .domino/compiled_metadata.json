@@ -821,6 +821,12 @@
                     "default": "",
                     "title": "Run Id",
                     "type": "string"
+                },
+                "user_input_summary_json": {
+                    "default": "",
+                    "description": "JSON with price source, merge mode and the datetime horizon actually used.",
+                    "title": "User Input Summary Json",
+                    "type": "string"
                 }
             },
             "required": [
@@ -1317,6 +1323,32 @@
                     "default": null,
                     "description": "Interval dispatch from BatterySimPiece, used for the daily profile chart.",
                     "title": "Battery Dispatch Csv"
+                },
+                "load_csv": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Merged load-and-price series from UserInputPiece (shows the prices used).",
+                    "title": "Load Csv"
+                },
+                "user_input_summary_json": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "UserInputPiece summary: price source, OKTE coverage and datetime horizon.",
+                    "title": "User Input Summary Json"
                 }
             },
             "required": [
