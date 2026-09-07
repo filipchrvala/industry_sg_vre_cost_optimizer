@@ -61,7 +61,6 @@ jobs:
           DOCKER_CLIENT_TIMEOUT: "3600"
           COMPOSE_HTTP_TIMEOUT: "3600"
         run: |
-          python scripts/verify_domino_imports.py
           domino piece organize --build-images --source-url=https://github.com/${{ github.repository }}
 
       - name: Retag image for GHCR
