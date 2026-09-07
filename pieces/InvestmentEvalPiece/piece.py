@@ -61,6 +61,7 @@ class InvestmentEvalPiece(BasePiece):
             cap = rep.get("capex_inputs") or {}
             exec_ = rep.get("executive_summary") or {}
             inv_eq = (rep.get("equipment") or {}).get("investment_metrics") or {}
+            unc = rep.get("uncertainty_assessment") or {}
             annual_est = exec_.get("operating_savings_eur_per_year_estimate")
             if annual_est is not None:
                 annual_sav = float(annual_est)
@@ -82,6 +83,14 @@ class InvestmentEvalPiece(BasePiece):
                 "simple_payback_years": inv_eq.get("simple_payback_years"),
                 "discounted_payback_years": inv_eq.get("discounted_payback_years"),
                 "npv_operating_eur": inv_eq.get("npv_eur"),
+                "irr_pct": unc.get("irr_pct"),
+                "p90_irr_pct": unc.get("p90_irr_pct"),
+                "p50_annual_savings_eur": unc.get("p50_annual_savings_eur"),
+                "p90_annual_savings_eur": unc.get("p90_annual_savings_eur"),
+                "p50_npv_eur": unc.get("p50_npv_eur"),
+                "p90_npv_eur": unc.get("p90_npv_eur"),
+                "probability_npv_positive": unc.get("probability_npv_positive"),
+                "uncertainty_method": unc.get("method"),
             }
 
             out_csv = out_dir / "investment_evaluation.csv"

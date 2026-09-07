@@ -67,8 +67,34 @@ class SizingOptimizationPiece(BasePiece):
             mode = str(eq.get("selection_mode", "manual")).lower()
             auto_log = None
             final_cfg = copy.deepcopy(cfg)
+
+            # Honour the bounds TechnicalLimitsPiece already derived. They were
+            # read here only to check the file exists, while the search recomputed
+            # its own, so roof area and CAPEX caps could differ from what the
+            # report showed.
+            technical_limits = json.loads(tl_path.read_text(encoding="utf-8")) or {}
+            _log(
+                f"Technical limits: max_kwp={technical_limits.get('max_kwp')}, "
+                f"max_kwh={technical_limits.get('max_kwh')}"
+            )
+
+            pv_profile = sim.load_pv_profile_per_kwp(
+                input_data.virtual_solar_csv,
+                df,
+                reference_kwp=float((cfg.get("pv") or {}).get("installed_kwp", 0.0) or 0.0),
+            )
+            _log(
+                "PV profile for the size sweep: "
+                + ("AI forecast" if pv_profile is not None else "synthetic fallback")
+            )
+
             if mode == "auto":
-                final_cfg, auto_log = sim._auto_optimize_sizes(final_cfg, df)
+                final_cfg, auto_log = sim._auto_optimize_sizes(
+                    final_cfg,
+                    df,
+                    bounds_override=technical_limits,
+                    pv_profile_per_kwp=pv_profile,
+                )
             _log(f"Resolved selection_mode={mode}, rows={len(df)}")
         except Exception as exc:
             (out_dir / "sizing_optimization_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
@@ -82,7 +108,15 @@ class SizingOptimizationPiece(BasePiece):
 
         out_json = out_dir / "sizing_optimization.json"
         out_json.write_text(
-            json.dumps({"selection_mode": mode, "auto_optimization": auto_log}, indent=2, ensure_ascii=False),
+            json.dumps(
+                {
+                    "selection_mode": mode,
+                    "technical_limits_applied": technical_limits,
+                    "auto_optimization": auto_log,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
             encoding="utf-8",
         )
         _log(f"Wrote outputs: {sized_yaml}, {out_json}")

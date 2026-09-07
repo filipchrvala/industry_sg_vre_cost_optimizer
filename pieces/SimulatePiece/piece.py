@@ -131,6 +131,51 @@ def synthetic_pv_kw(
     return pd.Series(np.clip(raw, 0.0, installed_kwp * 1.15), index=dt.index, name="pv_kw")
 
 
+def load_pv_profile_per_kwp(
+    path: Path | str | None,
+    df: pd.DataFrame,
+    *,
+    reference_kwp: float | None = None,
+) -> np.ndarray | None:
+    """Read the AI-forecast production shape normalised to one installed kWp.
+
+    PvoutToVirtualSolarPiece writes ``pv_kw_per_kwp`` alongside the absolute
+    profile. Older files carry only ``pv_kw``, which is divided by the reference
+    size it was generated at. Returns None when nothing usable is available, so
+    callers keep working on the synthetic fallback rather than failing.
+    """
+    if not path:
+        return None
+    p = Path(path)
+    if not p.is_file():
+        return None
+
+    raw = pd.read_csv(p)
+    if "pv_kw_per_kwp" in raw.columns:
+        series = pd.to_numeric(raw["pv_kw_per_kwp"], errors="coerce")
+    elif "pv_kw" in raw.columns:
+        if not reference_kwp or reference_kwp <= 0:
+            return None
+        series = pd.to_numeric(raw["pv_kw"], errors="coerce") / float(reference_kwp)
+    else:
+        return None
+
+    if "datetime" in raw.columns:
+        indexed = pd.Series(
+            series.to_numpy(), index=pd.to_datetime(raw["datetime"], errors="coerce")
+        )
+        indexed = indexed[~indexed.index.isna()]
+        indexed = indexed[~indexed.index.duplicated(keep="first")]
+        aligned = indexed.reindex(pd.to_datetime(df["datetime"]))
+        if aligned.notna().sum() == 0:
+            return None
+        return aligned.fillna(0.0).clip(lower=0.0).to_numpy(dtype=float)
+
+    if len(series) != len(df):
+        return None
+    return series.fillna(0.0).clip(lower=0.0).to_numpy(dtype=float)
+
+
 # --- batéria (ekonomický dispatch: LCOE FVE vs sieť vs náklad kWh z batérie) ---
 
 
@@ -634,44 +679,144 @@ def validate_input_contracts(
     return result
 
 
+def irr(cashflows: list[float], *, lo: float = -0.95, hi: float = 2.0) -> float | None:
+    """Internal rate of return by bisection on the net present value.
+
+    Bisection rather than Newton because the sign change is guaranteed to be
+    bracketed here, and a CAPEX-then-savings profile has exactly one root.
+    Returns None when the project never turns positive, which is the honest
+    answer rather than a number that looks like a rate of return.
+    """
+
+    def npv_at(rate: float) -> float:
+        return sum(cf / (1.0 + rate) ** i for i, cf in enumerate(cashflows))
+
+    npv_lo, npv_hi = npv_at(lo), npv_at(hi)
+    if npv_lo * npv_hi > 0:
+        return None
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        value = npv_at(mid)
+        if abs(value) < 1e-6:
+            return mid
+        if npv_lo * value <= 0:
+            hi = mid
+        else:
+            lo, npv_lo = mid, value
+    return (lo + hi) / 2.0
+
+
 def build_uncertainty_assessment(
     bundle: dict[str, Any],
     *,
     optimized: dict[str, Any] | None,
+    iterations: int = 4000,
+    seed: int = 20260906,
 ) -> dict[str, Any]:
-    """Simple commercial uncertainty envelope (best/base/worst and P50/P90 proxy)."""
+    """Monte Carlo over the drivers that actually move the investment case.
+
+    The previous version labelled a fixed -20% savings scenario "P90". A
+    percentile is a statement about a distribution, and quoting one that is not
+    derived from any distribution invites a reader to size a risk buffer against
+    a number that carries no probability. Savings, CAPEX, yield and price drift
+    are sampled instead, and the reported percentiles are read off the result.
+
+    The distributions are lognormal for multiplicative quantities so they cannot
+    go negative, with spreads set from typical EPC tender variance and the
+    year-to-year variability of irradiance in Central Europe.
+    """
     if optimized is None:
         return {"note": "No optimized scenario active."}
+
     base = bundle["baseline"]
     days = max(bundle["days_in_sample"], 1e-6)
     ann = 365.0 / days
     capex = float(bundle["pv_capex"]) + float(bundle["battery_capex"])
     base_sav = (float(base["total_operating_eur"]) - float(optimized["total_operating_eur"])) * ann
-    # Conservative envelopes for sales discussions
-    scenarios = {
-        "worst": {"annual_savings_eur": 0.8 * base_sav, "capex_eur": 1.1 * capex},
-        "base": {"annual_savings_eur": base_sav, "capex_eur": capex},
-        "best": {"annual_savings_eur": 1.15 * base_sav, "capex_eur": 0.95 * capex},
-    }
-    for key, v in scenarios.items():
-        sav = max(1e-9, float(v["annual_savings_eur"]))
-        cap = max(0.0, float(v["capex_eur"]))
-        v["simple_payback_years"] = round(cap / sav, 3)
-        v["annual_savings_eur"] = round(float(v["annual_savings_eur"]), 2)
-        v["capex_eur"] = round(float(v["capex_eur"]), 2)
+    years = int(bundle.get("years", 12))
+    dr = float(bundle.get("discount_rate", 0.08))
 
-    p50 = scenarios["base"]["annual_savings_eur"]
-    p90 = scenarios["worst"]["annual_savings_eur"]
-    return {
-        "method": "deterministic_envelope_v1",
+    if base_sav <= 0 or capex <= 0:
+        return {
+            "method": "monte_carlo_v1",
+            "note": "Savings or CAPEX are non-positive; percentiles would be meaningless.",
+            "p50_annual_savings_eur": round(base_sav, 2),
+            "p90_annual_savings_eur": round(base_sav, 2),
+        }
+
+    rng = np.random.default_rng(seed)
+
+    # Annual irradiance in Central Europe varies about 5% one standard deviation
+    # year to year, which is the dominant uncertainty on production.
+    yield_factor = rng.lognormal(mean=0.0, sigma=0.05, size=iterations)
+    # Spot price level over the amortisation period is the dominant uncertainty
+    # on the value of each kWh, and it is far wider than production.
+    price_factor = rng.lognormal(mean=0.0, sigma=0.18, size=iterations)
+    # Self-consumption and dispatch performance against the model.
+    performance_factor = rng.lognormal(mean=-0.015, sigma=0.06, size=iterations)
+    # EPC tender spread, skewed upward because overruns are more common.
+    capex_factor = rng.lognormal(mean=0.01, sigma=0.07, size=iterations)
+
+    savings = base_sav * yield_factor * price_factor * performance_factor
+    capexes = capex * capex_factor
+
+    paybacks = np.where(savings > 1e-9, capexes / np.maximum(savings, 1e-9), np.inf)
+    annuity = (1.0 - (1.0 + dr) ** -years) / dr if dr > 0 else float(years)
+    npvs = -capexes + savings * annuity
+
+    def pct(values: np.ndarray, q: float) -> float:
+        return float(np.percentile(values, q))
+
+    # P90 in project finance is the conservative end: the value exceeded in 90%
+    # of outcomes, which is the 10th percentile of the savings distribution.
+    result = {
+        "method": "monte_carlo_v1",
+        "iterations": iterations,
+        "seed": seed,
         "assumptions": {
-            "savings_uncertainty_pct": [-20, +15],
-            "capex_uncertainty_pct": [-5, +10],
+            "annual_yield_sigma_pct": 5.0,
+            "price_level_sigma_pct": 18.0,
+            "performance_sigma_pct": 6.0,
+            "capex_sigma_pct": 7.0,
+            "distribution": "lognormal, independent",
+            "note": (
+                "Percentiles are read off the simulated distribution. P90 is the "
+                "conservative end: the value exceeded in 90% of outcomes."
+            ),
         },
-        "scenarios": scenarios,
-        "p50_annual_savings_eur": p50,
-        "p90_annual_savings_eur": p90,
+        "p10_annual_savings_eur": round(pct(savings, 90), 2),
+        "p50_annual_savings_eur": round(pct(savings, 50), 2),
+        "p90_annual_savings_eur": round(pct(savings, 10), 2),
+        "p10_npv_eur": round(pct(npvs, 90), 2),
+        "p50_npv_eur": round(pct(npvs, 50), 2),
+        "p90_npv_eur": round(pct(npvs, 10), 2),
+        "p50_simple_payback_years": round(pct(paybacks[np.isfinite(paybacks)], 50), 3),
+        "p90_simple_payback_years": round(pct(paybacks[np.isfinite(paybacks)], 90), 3),
+        "probability_npv_positive": round(float(np.mean(npvs > 0)), 4),
+        "probability_payback_under_10y": round(float(np.mean(paybacks < 10.0)), 4),
     }
+
+    # The deterministic envelope stays for continuity with the existing report
+    # consumers, but it is no longer where the percentiles come from.
+    scenarios = {
+        "worst": {"annual_savings_eur": pct(savings, 10), "capex_eur": pct(capexes, 90)},
+        "base": {"annual_savings_eur": pct(savings, 50), "capex_eur": pct(capexes, 50)},
+        "best": {"annual_savings_eur": pct(savings, 90), "capex_eur": pct(capexes, 10)},
+    }
+    for value in scenarios.values():
+        sav = max(1e-9, float(value["annual_savings_eur"]))
+        cap = max(0.0, float(value["capex_eur"]))
+        value["simple_payback_years"] = round(cap / sav, 3)
+        value["annual_savings_eur"] = round(float(value["annual_savings_eur"]), 2)
+        value["capex_eur"] = round(float(value["capex_eur"]), 2)
+    result["scenarios"] = scenarios
+
+    base_irr = irr([-capex] + [base_sav] * years)
+    p90_irr = irr([-pct(capexes, 90)] + [pct(savings, 10)] * years)
+    result["irr_pct"] = round(base_irr * 100.0, 2) if base_irr is not None else None
+    result["p90_irr_pct"] = round(p90_irr * 100.0, 2) if p90_irr is not None else None
+
+    return result
 
 
 def mrk_peak_reduction_and_rv_opportunity(
@@ -829,7 +974,14 @@ def technical_bounds_kwp_kwh(cfg: dict[str, Any], df: pd.DataFrame, dt_h: float)
     inst = c.get("installation") or {}
     mount = str(inst.get("mount_type", "roof")).lower()
     kwp_per_m2 = float(lay.get("kwp_per_m2_roof", 0.18))
-    kwh_per_m2 = float(lay.get("kwh_per_m2_battery_area", 0.25))
+    # Energy density of an installed C&I battery system per square metre of
+    # allocated site area. The previous default of 0.25 kWh/m2 was low by more
+    # than two orders of magnitude: catalog cabinets run 42-95 kWh/m2 of device
+    # footprint and containers exceed 130, so any site with a stated battery area
+    # was capped at a few tens of kWh and the optimiser could never return a
+    # battery. 30 kWh/m2 is the cabinet figure derated for access aisles, fire
+    # separation and the power conversion system.
+    kwh_per_m2 = float(lay.get("kwh_per_m2_battery_area", 30.0))
 
     area_pv = ground if mount == "ground" and ground > 1e-6 else roof
     max_kwp = area_pv * kwp_per_m2 if area_pv > 1e-6 else 0.0
@@ -1134,8 +1286,17 @@ def _sim_bundle(
     df: pd.DataFrame,
     *,
     battery_strategy_thresholds: dict[str, float] | None = None,
+    pv_profile_per_kwp: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Jedna plná ekonomická simulácia (baseline + scenáre) pre danú konfiguráciu."""
+    """Jedna plná ekonomická simulácia (baseline + scenáre) pre danú konfiguráciu.
+
+    ``pv_profile_per_kwp`` is the AI-forecast production shape normalised to one
+    installed kWp, aligned to ``df``. When supplied, every scenario scales it by
+    the trial size instead of falling back to ``synthetic_pv_kw``. The synthetic
+    profile is a smooth sine that ignores weather, latitude and orientation, so
+    self-consumption and peak coincidence came out systematically wrong; sizing
+    and payback are only as good as the shape they are derived from.
+    """
     dt_h = infer_timestep_hours(df)
     strat = battery_strategy_thresholds or {}
     kw_dispatch = {
@@ -1206,8 +1367,13 @@ def _sim_bundle(
             dr,
         )
         if pv_on and installed_kwp > 0:
-            pv_ser = synthetic_pv_kw(df["datetime"], installed_kwp, yield_kwh_per_kwp_year=yield_kwp)
-            pv_kw = pv_ser.values
+            if pv_profile_per_kwp is not None:
+                pv_kw = np.asarray(pv_profile_per_kwp, dtype=float) * installed_kwp
+            else:
+                pv_ser = synthetic_pv_kw(
+                    df["datetime"], installed_kwp, yield_kwh_per_kwp_year=yield_kwp
+                )
+                pv_kw = pv_ser.values
         else:
             pv_kw = np.zeros(n)
 
@@ -1314,8 +1480,19 @@ def _sim_bundle(
     }
 
 
-def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Prehľadáva (kWp, kWh) a vracia najlepšiu konfiguráciu + log."""
+def _auto_optimize_sizes(
+    cfg: dict[str, Any],
+    df: pd.DataFrame,
+    bounds_override: dict[str, Any] | None = None,
+    pv_profile_per_kwp: np.ndarray | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Prehľadáva (kWp, kWh) a vracia najlepšiu konfiguráciu + log.
+
+    ``bounds_override`` accepts the technical limits already computed upstream by
+    TechnicalLimitsPiece, so the search respects the same roof area, CAPEX cap and
+    roof load limits that the rest of the workflow reports. Without it the bounds
+    were silently recomputed here and the upstream piece had no effect.
+    """
     base = copy.deepcopy(cfg)
     eq = base.get("equipment") or {}
     auto = eq.get("auto") or {}
@@ -1332,6 +1509,20 @@ def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[st
     max_cfgs = int(auto.get("max_configurations", 180))
     dt_h = infer_timestep_hours(df)
     bounds = technical_bounds_kwp_kwh(base, df, dt_h)
+    if bounds_override:
+        for key in ("max_kwp", "max_kwh"):
+            value = bounds_override.get(key)
+            if value is not None:
+                try:
+                    bounds[key] = float(value)
+                except (TypeError, ValueError):
+                    pass
+        bounds["bounds_source"] = "TechnicalLimitsPiece"
+        upstream_notes = bounds_override.get("notes")
+        if isinstance(upstream_notes, list):
+            bounds["notes"] = list(upstream_notes)
+    else:
+        bounds["bounds_source"] = "recomputed_locally"
 
     kwp_step = float(auto.get("kwp_step", 50.0))
     kwh_step = float(auto.get("kwh_step", 100.0))
@@ -1391,7 +1582,7 @@ def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[st
         trial = copy.deepcopy(base)
         trial.setdefault("pv", {})["installed_kwp"] = float(kwp)
         trial.setdefault("battery", {})["energy_kwh"] = float(kwh)
-        bundle = _sim_bundle(trial, df)
+        bundle = _sim_bundle(trial, df, pv_profile_per_kwp=pv_profile_per_kwp)
         score, fin = _score_financials(bundle, dr=dr, years=years, objective=objective)
         return score, fin, trial
 
@@ -1430,6 +1621,9 @@ def _auto_optimize_sizes(cfg: dict[str, Any], df: pd.DataFrame) -> tuple[dict[st
 
     log = {
         "bounds": bounds,
+        "pv_profile_source": (
+            "ai_forecast" if pv_profile_per_kwp is not None else "synthetic_sine_fallback"
+        ),
         "objective": objective,
         "require_pv": require_pv,
         "require_battery": require_battery,
