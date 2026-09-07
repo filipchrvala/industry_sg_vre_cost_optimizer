@@ -8,7 +8,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -58,6 +58,12 @@
           "run_id": {
             "default": "",
             "title": "Run Id",
+            "type": "string"
+          },
+          "user_input_summary_json": {
+            "default": "",
+            "description": "JSON with price source, merge mode and the datetime horizon actually used.",
+            "title": "User Input Summary Json",
             "type": "string"
           }
         },
@@ -141,7 +147,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -272,7 +278,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -394,7 +400,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -571,7 +577,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -734,7 +740,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -917,7 +923,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1102,7 +1108,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1295,7 +1301,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "data_path": {
@@ -1391,7 +1397,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -1699,7 +1705,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "additionalProperties": true,
         "properties": {
@@ -2033,7 +2039,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "baseline_model_path": {
@@ -2152,7 +2158,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "$defs": {
           "ModelSpec": {
@@ -2601,7 +2607,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "forecast_csv_path": {
@@ -2707,7 +2713,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -2848,7 +2854,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -2965,7 +2971,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3082,7 +3088,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3230,7 +3236,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3400,7 +3406,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3587,7 +3593,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3698,7 +3704,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3820,7 +3826,7 @@
         "requirements_file": "requirements_0.txt",
         "dockerfile": null
       },
-      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.44-group0",
+      "source_image": "ghcr.io/filipchrvala/industry_sg_vre_cost_optimizer:0.1.45-group0",
       "input_schema": {
         "properties": {
           "run_id": {
@@ -3895,6 +3901,32 @@
             "default": null,
             "description": "Interval dispatch from BatterySimPiece, used for the daily profile chart.",
             "title": "Battery Dispatch Csv"
+          },
+          "load_csv": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Merged load-and-price series from UserInputPiece (shows the prices used).",
+            "title": "Load Csv"
+          },
+          "user_input_summary_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UserInputPiece summary: price source, OKTE coverage and datetime horizon.",
+            "title": "User Input Summary Json"
           }
         },
         "required": [
@@ -5154,6 +5186,20 @@
           "upstreamId": "BatterySim_9738a3b57514577ab1590a5aabcc2c52",
           "upstreamArgument": "battery_dispatch_csv",
           "upstreamValue": "BatterySimPiece (9738a3b5) - Battery Dispatch Csv",
+          "value": null
+        },
+        "load_csv": {
+          "fromUpstream": true,
+          "upstreamId": "UserInputP_c0855de1a3735273a2a08cd79260fdc3",
+          "upstreamArgument": "load_csv",
+          "upstreamValue": "UserInputPiece (c0855de1) - Load Csv",
+          "value": null
+        },
+        "user_input_summary_json": {
+          "fromUpstream": true,
+          "upstreamId": "UserInputP_c0855de1a3735273a2a08cd79260fdc3",
+          "upstreamArgument": "user_input_summary_json",
+          "upstreamValue": "UserInputPiece (c0855de1) - User Input Summary Json",
           "value": null
         }
       }

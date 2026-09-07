@@ -29,6 +29,9 @@ class UserInputPiece(BasePiece):
 
     @staticmethod
     def _read_csv_auto(path: Path) -> pd.DataFrame:
+        suffix = path.suffix.lower()
+        if suffix in {".xlsx", ".xlsm", ".xls"}:
+            return pd.read_excel(path, sheet_name=0)
         return pd.read_csv(path, sep=None, engine="python", encoding="utf-8-sig", decimal=",")
 
     @staticmethod
@@ -41,7 +44,7 @@ class UserInputPiece(BasePiece):
                 dt_col = cand
                 break
         if dt_col is None:
-            raise ValueError("CSV must contain datetime/date_time/timestamp column")
+            raise ValueError("Súbor musí obsahovať stĺpec datetime/date_time/timestamp")
         raw_dt = df[dt_col].astype(str).str.strip()
         # Support both ISO (YYYY-MM-DD ...) and local day-first formats (dd.mm.yyyy ...).
         dt_iso = pd.to_datetime(raw_dt, errors="coerce", dayfirst=False, format="mixed")
@@ -150,7 +153,7 @@ class UserInputPiece(BasePiece):
         _log(f"Input prices_csv={prices_csv}")
         _log(f"Input scenario_yaml={scenario_yaml}")
         if not load_csv.is_file():
-            raise FileNotFoundError(f"Load CSV not found: {load_csv}")
+            raise FileNotFoundError(f"Load file not found: {load_csv}")
         if not scenario_yaml.is_file():
             raise FileNotFoundError(f"Scenario YAML not found: {scenario_yaml}")
         scenario_copy = out_dir / "scenario_resolved.yaml"
@@ -260,7 +263,8 @@ class UserInputPiece(BasePiece):
             "gap_repair_enabled": gap_repair_enabled,
             "repaired_intervals_count": int(repaired_intervals),
         }
-        (out_dir / "user_input_summary.json").write_text(
+        summary_path = out_dir / "user_input_summary.json"
+        summary_path.write_text(
             json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         (out_dir / "user_input_validated.json").write_text(
@@ -272,6 +276,7 @@ class UserInputPiece(BasePiece):
             load_csv=str(merged_path),
             scenario_yaml=str(scenario_copy),
             run_id=_run_id or "",
+            user_input_summary_json=str(summary_path),
         )
         if od is not None and _piece_out is not None:
             return od.finish_piece(

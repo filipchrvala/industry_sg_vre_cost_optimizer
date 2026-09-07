@@ -31,6 +31,14 @@ class InputModel(RunIdInputMixin):
         default=None,
         description="Interval dispatch from BatterySimPiece, used for the daily profile chart.",
     )
+    load_csv: Optional[str] = Field(
+        default=None,
+        description="Merged load-and-price series from UserInputPiece (shows the prices used).",
+    )
+    user_input_summary_json: Optional[str] = Field(
+        default=None,
+        description="UserInputPiece summary: price source, OKTE coverage and datetime horizon.",
+    )
 
 
 class SecretsModel(OneDataSecretsModel):

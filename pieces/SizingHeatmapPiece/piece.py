@@ -104,8 +104,14 @@ class SizingHeatmapPiece(BasePiece):
                     "annual_savings_eur",
                     "npv_eur",
                     "simple_payback_years",
+                    "discounted_payback_years",
                     "total_capex_eur",
                     "self_consumption_pct",
+                    "operating_cost_baseline_eur",
+                    "operating_cost_optimized_eur",
+                    "battery_cycles_per_year",
+                    "battery_life_years",
+                    "cashflow_after_om_eur",
                 )
             }
 
@@ -122,9 +128,15 @@ class SizingHeatmapPiece(BasePiece):
                         best = cell
 
             if best is None:
-                # Nothing cleared the objective, so report the largest saving
-                # rather than an empty recommendation.
-                best = max(rows, key=lambda r: r.get("annual_savings_eur") or -1e18)
+                if objective in ("shortest_payback", "min_payback", "payback"):
+                    best = min(
+                        rows,
+                        key=lambda r: r.get("simple_payback_years")
+                        if r.get("simple_payback_years") is not None
+                        else 1e18,
+                    )
+                else:
+                    best = max(rows, key=lambda r: r.get("annual_savings_eur") or -1e18)
 
             _log(
                 f"Evaluated {len(rows)} combinations; best {best['kwp']:.0f} kWp / "
@@ -149,7 +161,13 @@ class SizingHeatmapPiece(BasePiece):
                     "annual_savings_eur": best.get("annual_savings_eur"),
                     "npv_eur": best.get("npv_eur"),
                     "simple_payback_years": best.get("simple_payback_years"),
+                    "discounted_payback_years": best.get("discounted_payback_years"),
                     "total_capex_eur": best.get("total_capex_eur"),
+                    "operating_cost_baseline_eur": best.get("operating_cost_baseline_eur"),
+                    "operating_cost_optimized_eur": best.get("operating_cost_optimized_eur"),
+                    "battery_cycles_per_year": best.get("battery_cycles_per_year"),
+                    "battery_life_years": best.get("battery_life_years"),
+                    "cashflow_after_om_eur": best.get("cashflow_after_om_eur"),
                 },
                 "current_scenario": {
                     "pv_kwp": reference_kwp,
@@ -251,8 +269,14 @@ class SizingHeatmapPiece(BasePiece):
             "annual_savings_eur": None,
             "npv_eur": None,
             "simple_payback_years": None,
+            "discounted_payback_years": None,
             "total_capex_eur": None,
             "self_consumption_pct": None,
+            "operating_cost_baseline_eur": None,
+            "operating_cost_optimized_eur": None,
+            "battery_cycles_per_year": None,
+            "battery_life_years": None,
+            "cashflow_after_om_eur": None,
         }
         if kwp <= 0 and kwh <= 0:
             cell.update({"annual_savings_eur": 0.0, "npv_eur": 0.0, "total_capex_eur": 0.0})
@@ -266,14 +290,41 @@ class SizingHeatmapPiece(BasePiece):
         except Exception:
             return cell
 
+        days = float(bundle.get("days_in_sample") or 365.0)
+        ann = 365.0 / max(days, 1e-9)
+        optimized = sim.primary_optimized_scenario(bundle)
+        baseline = bundle.get("baseline") or {}
+        om = float((trial.get("pv") or {}).get("om_eur_per_kwp_year", 0.0) or 0.0) * float(kwp)
+        om += float((trial.get("battery") or {}).get("om_eur_per_kwh_year", 0.0) or 0.0) * float(kwh)
+        annual_sav = fin.get("annual_operating_savings_eur")
+        cycles_year = None
+        life_years = None
+        if kwh > 1e-6 and optimized is not None:
+            soh = sim.build_battery_soh_assessment(
+                equivalent_cycles_period=float(optimized.get("equivalent_full_cycles", 0.0) or 0.0),
+                days_in_sample=days,
+                battery_cfg=trial.get("battery") or {},
+            )
+            cycles_year = soh.get("annual_equivalent_cycles_est")
+            life_years = soh.get("estimated_life_years_effective")
         cell.update(
             {
                 "score": float(score),
                 "feasible": bool(np.isfinite(score)),
-                "annual_savings_eur": fin.get("annual_operating_savings_eur"),
+                "annual_savings_eur": annual_sav,
                 "npv_eur": fin.get("npv_eur"),
                 "simple_payback_years": fin.get("simple_payback_years"),
+                "discounted_payback_years": fin.get("discounted_payback_years"),
                 "total_capex_eur": fin.get("total_capex_eur"),
+                "operating_cost_baseline_eur": round(float(baseline.get("total_operating_eur") or 0.0) * ann, 2),
+                "operating_cost_optimized_eur": round(
+                    float((optimized or {}).get("total_operating_eur") or 0.0) * ann, 2
+                ),
+                "battery_cycles_per_year": cycles_year,
+                "battery_life_years": life_years,
+                "cashflow_after_om_eur": (
+                    round(float(annual_sav) - om, 2) if annual_sav is not None else None
+                ),
             }
         )
 

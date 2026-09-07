@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import traceback
 
+import numpy as np
 import pandas as pd
 from domino.base_piece import BasePiece
 
@@ -171,6 +172,153 @@ class DashboardPiece(BasePiece):
             }
         )
 
+    PRICE_SOURCE_COPY = {
+        "okte_dam": (
+            "OKTE ISOT — denný trh (DAM)",
+            "Ceny boli stiahnuté z verejného rozhrania OKTE ISOT (isot.okte.sk) "
+            "za rovnaké obdobie ako nameraný odber. Hodinová cena denného trhu "
+            "je priradená k 15-minútovým intervalom odberu (spätné priradenie).",
+        ),
+        "load_csv": (
+            "Cenník v profile odberu",
+            "Použité boli ceny zo stĺpca price_eur_per_kwh v nahratom súbore odberu.",
+        ),
+        "prices_csv": (
+            "Samostatný cenník",
+            "Ceny pochádzajú zo samostatného súboru, zladeného s časovými značkami odberu.",
+        ),
+    }
+
+    @staticmethod
+    def _read_summary(path: str | None, load_path: Path | None) -> dict:
+        candidates = []
+        if path and str(path).strip():
+            candidates.append(Path(str(path).strip()))
+        if load_path is not None:
+            candidates.append(load_path.parent / "user_input_summary.json")
+        for candidate in candidates:
+            if candidate.is_file() and candidate.stat().st_size > 0:
+                try:
+                    data = json.loads(candidate.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if isinstance(data, dict):
+                    return data
+        return {}
+
+    @classmethod
+    def _build_prices(cls, load_path: Path, summary: dict) -> dict:
+        """Price series actually used in the economics — for the finance reader."""
+        empty = {
+            "available": False,
+            "source": None,
+            "source_label": "Ceny nie sú k dispozícii",
+            "source_detail": "Zlúčený profil odberu a cien sa do dashboardu nedostal.",
+            "period_start": None,
+            "period_end": None,
+            "rows": 0,
+            "priced_rows": 0,
+            "coverage_pct": None,
+            "mean_eur_per_mwh": None,
+            "weighted_mean_eur_per_mwh": None,
+            "min_eur_per_mwh": None,
+            "max_eur_per_mwh": None,
+            "p10_p50_p90_eur_per_mwh": [],
+            "mean_eur_per_kwh": None,
+            "monthly": {"x": [], "mean_eur_per_mwh": [], "weighted_eur_per_mwh": []},
+            "hourly": {"x": [], "mean_eur_per_mwh": []},
+        }
+        if not load_path.is_file():
+            return empty
+        try:
+            raw = pd.read_csv(load_path)
+        except Exception:
+            return empty
+        cols = {str(c).strip().lower().replace(" ", "_"): c for c in raw.columns}
+        dt_key = next((cols[k] for k in ("datetime", "date_time", "timestamp") if k in cols), None)
+        price_key = cols.get("price_eur_per_kwh") or cols.get("price_eur_kwh")
+        if price_key is None and "price_eur_mwh" in cols:
+            raw = raw.copy()
+            raw["price_eur_per_kwh"] = pd.to_numeric(raw[cols["price_eur_mwh"]], errors="coerce") / 1000.0
+            price_key = "price_eur_per_kwh"
+        if dt_key is None or price_key is None:
+            return empty
+
+        frame = pd.DataFrame(
+            {
+                "datetime": pd.to_datetime(raw[dt_key], errors="coerce"),
+                "price": pd.to_numeric(raw[price_key], errors="coerce"),
+            }
+        )
+        load_key = cols.get("load_kw")
+        if load_key is not None:
+            frame["load_kw"] = pd.to_numeric(raw[load_key], errors="coerce").fillna(0.0).clip(lower=0.0)
+        else:
+            frame["load_kw"] = 1.0
+        frame = frame.dropna(subset=["datetime"]).sort_values("datetime")
+        priced = frame.dropna(subset=["price"])
+        if priced.empty:
+            return empty
+
+        mwh = priced["price"].astype(float) * 1000.0
+        load_w = priced["load_kw"].astype(float).clip(lower=0.0)
+        weights = load_w if float(load_w.sum()) > 0 else pd.Series(1.0, index=priced.index)
+        source = str(summary.get("price_source") or "").strip() or "unknown"
+        label, detail = cls.PRICE_SOURCE_COPY.get(
+            source,
+            (
+                "Ceny v zlúčenom profile",
+                "Zdroj cien nie je v katalogu označený; nižšie sú hodnoty, s ktorými model skutočne počítal.",
+            ),
+        )
+        priced = priced.copy()
+        priced["mwh"] = mwh.to_numpy()
+        priced["month"] = priced["datetime"].dt.to_period("M").dt.to_timestamp()
+        priced["hour"] = priced["datetime"].dt.hour
+        monthly_rows = []
+        for month, group in priced.groupby("month", sort=True):
+            w = group["load_kw"].to_numpy(dtype=float)
+            p = group["mwh"].to_numpy(dtype=float)
+            monthly_rows.append(
+                {
+                    "month": month,
+                    "mean": float(p.mean()),
+                    "weighted": float(np.average(p, weights=np.maximum(w, 1e-9))),
+                }
+            )
+        hourly_rows = []
+        for hour, group in priced.groupby("hour", sort=True):
+            hourly_rows.append({"hour": int(hour), "mean": float(group["mwh"].mean())})
+
+        coverage = 100.0 * len(priced) / max(len(frame), 1)
+        return {
+            "available": True,
+            "source": source,
+            "source_label": label,
+            "source_detail": detail,
+            "merge_mode": summary.get("merge_mode"),
+            "period_start": str(priced["datetime"].min()),
+            "period_end": str(priced["datetime"].max()),
+            "rows": int(len(frame)),
+            "priced_rows": int(len(priced)),
+            "coverage_pct": round(coverage, 1),
+            "mean_eur_per_mwh": round(float(mwh.mean()), 2),
+            "weighted_mean_eur_per_mwh": round(float(np.average(mwh, weights=np.maximum(weights, 1e-9))), 2),
+            "min_eur_per_mwh": round(float(mwh.min()), 2),
+            "max_eur_per_mwh": round(float(mwh.max()), 2),
+            "p10_p50_p90_eur_per_mwh": [round(float(np.percentile(mwh, p)), 2) for p in (10, 50, 90)],
+            "mean_eur_per_kwh": round(float(priced["price"].mean()), 5),
+            "monthly": {
+                "x": [row["month"].strftime("%Y-%m") for row in monthly_rows],
+                "mean_eur_per_mwh": [round(row["mean"], 2) for row in monthly_rows],
+                "weighted_eur_per_mwh": [round(row["weighted"], 2) for row in monthly_rows],
+            },
+            "hourly": {
+                "x": [f"{row['hour']:02d}:00" for row in hourly_rows],
+                "mean_eur_per_mwh": [round(row["mean"], 2) for row in hourly_rows],
+            },
+        }
+
     def piece_function(self, input_data: InputModel, secrets_data=None) -> OutputModel:
         _stage = None
         _piece_out = None
@@ -221,6 +369,12 @@ class DashboardPiece(BasePiece):
                 profile_path=profile_path,
                 dispatch_path=Path((input_data.battery_dispatch_csv or "").strip() or ""),
             )
+            load_path = Path((getattr(input_data, "load_csv", None) or "").strip() or "")
+            price_summary = self._read_summary(
+                getattr(input_data, "user_input_summary_json", None),
+                load_path if load_path.is_file() else None,
+            )
+            prices = self._build_prices(load_path, price_summary)
             # Kept for older consumers of dashboard_data.json.
             chart = consumption.get("legacy_chart") or {
                 "title": "Spotreba zo siete: bez FVE a batérie vs s FVE a batériou",
@@ -255,9 +409,13 @@ class DashboardPiece(BasePiece):
                     "battery_estimated_life_years_effective": ((rep.get("battery_lifetime_assessment") or {}).get("estimated_life_years_effective")),
                     "finance_annual_net_cashflow_after_finance_eur": ((rep.get("finance_layer") or {}).get("annual_net_cashflow_after_finance_eur")),
                     "finance_npv_after_finance_eur": ((rep.get("finance_layer") or {}).get("npv_after_finance_eur")),
+                    "battery_kwh": ((rep.get("equipment") or {}).get("resolved") or {}).get("energy_kwh"),
+                    "discount_rate": ((rep.get("equipment") or {}).get("investment_metrics") or {}).get("discount_rate"),
+                    "analysis_horizon_years": ((rep.get("equipment") or {}).get("investment_metrics") or {}).get("analysis_horizon_years"),
                 },
                 "single_chart": chart,
                 "consumption": consumption,
+                "prices": prices,
                 "battery_lifetime_assessment": (rep.get("battery_lifetime_assessment") or {}),
                 "c_rate_sweep": (rep.get("c_rate_sweep") or []),
                 "trading_only_analysis": (rep.get("trading_only_analysis") or {}),
@@ -266,6 +424,8 @@ class DashboardPiece(BasePiece):
                     "report_schema_version": ((rep.get("meta") or {}).get("schema_version")),
                     "catalog_url_outage_detected": (((rep.get("equipment") or {}).get("catalog_sync_status") or {}).get("url_outage_detected")),
                     "historical_prices_in_csv": ((rep.get("input_quality") or {}).get("historical_prices_in_csv")),
+                    "price_source": prices.get("source"),
+                    "price_source_label": prices.get("source_label"),
                 },
             }
 

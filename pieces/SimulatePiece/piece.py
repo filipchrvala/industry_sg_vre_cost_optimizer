@@ -1086,7 +1086,7 @@ def _score_financials(
 
     pb = capex / annual_sav
     npv_v = -capex + _npv_annuity(annual_sav, years, dr)
-    dpb = _discounted_payback_years(capex, annual_sav, dr, max_years=years + 5)
+    dpb = _discounted_payback_years(capex, annual_sav, dr, max_years=max(years + 5, 40))
     meta["simple_payback_years"] = round(pb, 3)
     meta["npv_eur"] = round(npv_v, 2)
     meta["discounted_payback_years"] = round(dpb, 3) if dpb is not None else None
@@ -2133,12 +2133,16 @@ def run_analysis(
             "relative_to_idle_baseline": base_trade,
         }
 
-    finance_cfg = cfg.get("finance") or {}
-    if finance_cfg.get("enabled", False) and optimized is not None:
+    if optimized is not None:
         annual_savings = (float(baseline["total_operating_eur"]) - float(optimized["total_operating_eur"])) * (
             365.0 / max(days_in_sample, 1e-9)
         )
         total_capex = float(pv_capex + bat_capex)
+        om_from_plant = float(pv_cfg.get("om_eur_per_kwp_year", 0.0) or 0.0) * float(installed_kwp)
+        om_from_plant += float(bat_cfg.get("om_eur_per_kwh_year", 0.0) or 0.0) * float(e_kwh)
+        finance_cfg = dict(cfg.get("finance") or {})
+        if not finance_cfg.get("o_and_m_eur_per_year"):
+            finance_cfg["o_and_m_eur_per_year"] = om_from_plant
         result["finance_layer"] = apply_finance_layer(
             annual_operating_savings_eur=annual_savings,
             total_capex_eur=total_capex,
@@ -2147,7 +2151,7 @@ def run_analysis(
             finance_cfg=finance_cfg,
         )
         result["finance_layer"]["assumptions"] = {
-            "enabled": True,
+            "enabled": bool(finance_cfg.get("enabled", False)),
             "o_and_m_eur_per_year": float(finance_cfg.get("o_and_m_eur_per_year", 0.0)),
             "o_and_m_pct_of_capex": float(finance_cfg.get("o_and_m_pct_of_capex", 0.0)),
             "debt_ratio_of_capex": float(finance_cfg.get("debt_ratio_of_capex", 0.0)),

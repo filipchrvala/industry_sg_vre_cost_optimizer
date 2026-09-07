@@ -4,3 +4,4 @@ __pycache__/
 venv/
 .local_run/
 .local_run_30d/
+.local_web/

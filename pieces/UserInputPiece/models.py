@@ -31,3 +31,7 @@ class OutputModel(BaseModel):
     load_csv: str
     scenario_yaml: str
     run_id: str = ""
+    user_input_summary_json: str = Field(
+        default="",
+        description="JSON with price source, merge mode and the datetime horizon actually used.",
+    )
