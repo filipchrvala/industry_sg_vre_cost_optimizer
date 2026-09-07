@@ -425,8 +425,6 @@ def _output_base(secrets_data: Any) -> str | None:
     val = _get(secrets_data, "onedata_output_dir") or os.environ.get("ONEDATA_OUTPUT_BASE")
     if val:
         return str(val)
-    if _onedata_configured:
-        return DEFAULT_OUTPUT_DIR
     return None
 
 
